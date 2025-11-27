@@ -1,6 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
 import Login from './pages/Login.jsx'
 import Register from './pages/Register.jsx'
 import Dashboard from './pages/Dashboard.jsx'
@@ -19,6 +19,20 @@ import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
 import './style.css'
 
+// Component to redirect /dashboard to role-based dashboard
+function DashboardRedirect() {
+  const navigate = useNavigate();
+  React.useEffect(() => {
+    const user = JSON.parse(localStorage.getItem('user') || 'null');
+    if (user?.role === 'doctor') {
+      navigate('/doctor/dashboard', { replace: true });
+    } else {
+      navigate('/patient/dashboard', { replace: true });
+    }
+  }, [navigate]);
+  return null;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -29,16 +43,7 @@ function App() {
           <Route path="/" element={<Navigate to="/login" replace />} />
           
           {/* Redirect /dashboard to role-based dashboard */}
-          <Route path="/dashboard" element={
-            (() => {
-              const user = JSON.parse(localStorage.getItem('user') || 'null');
-              if (user?.role === 'doctor') {
-                return <Navigate to="/doctor/dashboard" replace />;
-              } else {
-                return <Navigate to="/patient/dashboard" replace />;
-              }
-            })()
-          } />
+          <Route path="/dashboard" element={<DashboardRedirect />} />
           
           {/* Doctor routes */}
           <Route path="/doctor/dashboard" element={
