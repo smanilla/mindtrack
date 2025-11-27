@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindTrack: Project Proposal</title>
+  <style>
+    :root {
+      --accent: #2563eb;
+      --text: #0f172a;
+      --muted: #475569;
+      --bg: #ffffff;
+      --border: #e2e8f0;
+      --soft: #f8fafc;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: -apple-system, system-ui, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background: var(--bg);
+      margin: 0;
+      line-height: 1.6;
+    }
+    .page {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 32px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    header {
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+    h1 {
+      margin: 0 0 6px 0;
+      font-size: 28px;
+    }
+    .subtitle { color: var(--muted); font-size: 14px; }
+    h2 {
+      margin-top: 28px;
+      border-left: 4px solid var(--accent);
+      padding-left: 12px;
+      font-size: 20px;
+    }
+    p { margin: 8px 0; }
+    ul { margin: 8px 0 8px 20px; }
+    .card {
+      background: var(--soft);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin: 12px 0;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .muted { color: var(--muted); }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f1f5f9; padding:2px 6px; border-radius:6px; border:1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid var(--border); padding: 8px; text-align: center; }
+    th { background: #f1f5f9; }
+    .right { text-align: right; }
+    .gantt-key { display:flex; gap:10px; align-items:center; margin:8px 0; }
+    .bar { background: var(--accent); color:#fff; border-radius: 4px; padding: 2px 0; }
+    .nowrap { white-space: nowrap; }
+    @media print {
+      body { background: #fff; }
+      .page { border: none; margin: 0; border-radius: 0; }
+      a[href]::after { content: " (" attr(href) ")"; font-size: 90%; color: #64748b; }
+    }
+  </style>
+  <meta name="description" content="MindTrack: An AI-Assisted Mental Health Journaling and Monitoring Platform – Project Proposal" />
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>MindTrack: An AI-Assisted Mental Health Journaling and Monitoring Platform</h1>
+      <div class="subtitle">Project Proposal • MERN + AI/NLP • Submission: End of 8th Semester</div>
+    </header>
+
+    <section>
+      <h2>1) Title & Abstract</h2>
+      <div class="card">
+        <p><strong>Title</strong>: MindTrack: An AI-Assisted Mental Health Journaling and Monitoring Platform</p>
+        <p><strong>Abstract</strong>: MindTrack is a MERN-based web platform that enables patients to track mood and mental health through journaling while allowing healthcare providers to monitor trends and risk indicators. Using AI/NLP, the system generates weekly summaries, flags potential crisis signals, and supports guided assessments. It features role-based access, secure authentication, clinician dashboards, and patient self-help insights. The project aims to improve early detection, support clinician efficiency, and increase patient engagement via privacy-preserving design and explainable AI outputs.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>2) Background / Problem Statement</h2>
+      <div class="card">
+        <ul>
+          <li>Mental health services face rising demand and limited clinician time, reducing continuity of monitoring between sessions.</li>
+          <li>Patients struggle with consistent self-tracking; clinicians often lack longitudinal, structured insights.</li>
+          <li>Existing apps are either purely self-help or lack clinical workflows and secure data sharing.</li>
+          <li><strong>Problem</strong>: Provide a secure, clinician-integrated, AI-assisted journaling and assessment tool that surfaces risk signals and trends without increasing clinician burden.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>3) Objectives</h2>
+      <div class="card">
+        <ul>
+          <li>Build a secure, role-based web application for patients and doctors.</li>
+          <li>Enable entries, mood tracking, and AI-guided assessments.</li>
+          <li>Generate weekly AI/NLP summaries and highlight mood trends and crisis indicators.</li>
+          <li>Provide clinician dashboards, patient summaries, and report drill-downs.</li>
+          <li>Ensure privacy (JWT auth, HTTPS-ready), least-privilege data model, and explainable outputs.</li>
+          <li>Deliver usable performance and maintainable, testable code with clear documentation.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>4) Methodology</h2>
+      <div class="card">
+        <p><strong>Architecture</strong>: MERN stack</p>
+        <div class="grid-2">
+          <div>
+            <ul>
+              <li><strong>Frontend</strong>: React + Vite + React Router; Axios for API access.</li>
+              <li><strong>Backend</strong>: Node.js/Express REST APIs; routes for auth, entries, journals, AI assessment/summary; JWT middleware.</li>
+              <li><strong>Database</strong>: MongoDB with Mongoose models (<span class="kbd">User</span>, <span class="kbd">Entry</span>, <span class="kbd">Journal</span>, <span class="kbd">Assessment</span>).</li>
+              <li><strong>AI/NLP</strong>: LLM-based analysis for weekly summaries, sentiment/risk indicators, guided assessments (see <span class="kbd">OPENAI_SETUP.md</span>).</li>
+            </ul>
+          </div>
+          <div>
+            <ul>
+              <li><strong>Security</strong>: JWT bearer auth, CORS, server-side validation, HTTPS-ready deployment.</li>
+              <li><strong>Data</strong>: Minimal PHI, separate collections, created-by ownership, timestamps, mood scores, indexes by user.</li>
+              <li><strong>DevOps/Testing</strong>: Nodemon + Vite for local dev; Postman tests (<span class="kbd">docs/TESTING_POSTMAN.md</span>); deployment to cloud or Docker (planned).</li>
+              <li><strong>Ethics/Explainability</strong>: Human-readable rationales; disclaimers; export/delete data on request.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>5) Expected Outcome</h2>
+      <div class="card">
+        <ul>
+          <li>Working platform where patients journal and receive AI-generated weekly summaries and visual mood trends.</li>
+          <li>Clinicians view curated patient summaries and reports for session support and triage.</li>
+          <li>Improved engagement and earlier detection of concerning signals through AI flagging.</li>
+          <li>Secure, maintainable codebase with documentation and endpoint tests.</li>
+          <li>Basis for research on efficacy and usability of AI-assisted mental health monitoring.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section>
+      <h2>6) Timeline (Gantt Chart) and Budget</h2>
+      <div class="card">
+        <p><strong>Assumption</strong>: 16-week build window (adjustable to your academic calendar).</p>
+        <div class="gantt-key"><span class="bar" style="display:inline-block;width:40px;">&nbsp;</span> <span class="muted">= active</span></div>
+        <table aria-label="Gantt chart">
+          <thead>
+            <tr>
+              <th class="right">Workstream</th>
+              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th>
+              <th>9</th><th>10</th><th>11</th><th>12</th><th>13</th><th>14</th><th>15</th><th>16</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="right nowrap">Requirements, UX flows, data model</td>
+              <td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Backend auth + core models/APIs</td>
+              <td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Frontend scaffolding + routing</td>
+              <td> </td><td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Patient journaling + mood tracking</td>
+              <td> </td><td> </td><td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Doctor dashboard + reports</td>
+              <td> </td><td> </td><td> </td><td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">AI integration (assess + summaries)</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td>
+              <td class="bar"> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Security hardening + CORS + logging</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td class="bar"> </td><td class="bar"> </td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Testing (API/UX), bug fixing</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td class="bar"> </td>
+              <td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Performance and UX polish</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+              <td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Deployment prep + docs</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+              <td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td> </td><td> </td><td> </td><td> </td>
+            </tr>
+            <tr>
+              <td class="right nowrap">Final validation, buffer, submission</td>
+              <td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td><td> </td>
+              <td> </td><td> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td><td class="bar"> </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h3 style="margin:18px 0 8px;">Budget (indicative)</h3>
+        <table aria-label="Budget table">
+          <thead>
+            <tr>
+              <th style="text-align:left;">Item</th>
+              <th>Estimated</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td style="text-align:left;">Cloud hosting (Node + MongoDB Atlas)</td><td>$0–$75</td></tr>
+            <tr><td style="text-align:left;">Domain + TLS (optional)</td><td>$15–$30</td></tr>
+            <tr><td style="text-align:left;">LLM API usage (summaries/assessments)</td><td>$50–$150</td></tr>
+            <tr><td style="text-align:left;">Monitoring/logging (starter tier)</td><td>$0–$30</td></tr>
+            <tr><td style="text-align:left;">Email/SMS alerts (optional)</td><td>$10–$30</td></tr>
+            <tr><td style="text-align:left;">Contingency (15%)</td><td>≈ $25–$50</td></tr>
+            <tr><th style="text-align:left;">Total</th><th>≈ $200–$350 (semester pilot)</th></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>7) References</h2>
+      <div class="card">
+        <ul>
+          <li>American Psychiatric Association. “Practice Guidelines for the Psychiatric Evaluation of Adults,” 2016.</li>
+          <li>World Health Organization. “Mental health action plan 2013–2030,” 2021.</li>
+          <li>Goldberg, D. P., & Williams, P. A User’s Guide to the General Health Questionnaire. NFER-Nelson, 1988.</li>
+          <li>Devlin, J. et al. “BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding,” NAACL-HLT, 2019.</li>
+          <li>OpenAI API Documentation. Accessed 2025.</li>
+          <li>Vazquez, M., et al. “Digital phenotyping in mental health,” The Lancet Psychiatry, 2022.</li>
+          <li>ISO/IEC 27001:2022 Information security management systems.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="muted" style="margin-top: 16px;">
+      <p><strong>Notes aligned to the codebase</strong>: Backend routes (<span class="kbd">authRoutes</span>, <span class="kbd">entryRoutes</span>, <span class="kbd">journalRoutes</span>, <span class="kbd">aiRoutes</span>, <span class="kbd">aiAssessmentRoutes</span>, <span class="kbd">doctorRoutes</span>), Mongo config in <span class="kbd">backend/config/db.js</span>, JWT middleware in <span class="kbd">backend/middleware/authMiddleware.js</span>. Frontend in React/Vite with pages for Login/Register, Patient/Doctor dashboards, AI Assessment, Journal, and Reports. API base via <span class="kbd">VITE_API_URL</span>.</p>
+      <p>To export as PDF: open this HTML in a browser and press <span class="kbd">Ctrl + P</span> → Destination: “Save as PDF” → More settings: enable “Background graphics”, margins “Default”.</p>
+    </section>
+  </div>
+</body>
+</html>
+
+
