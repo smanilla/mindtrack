@@ -21,7 +21,10 @@ async function connectDB() {
   }
 
   let uri = process.env.MONGO_URI;
-  if (!uri) throw new Error('MONGO_URI not set');
+  if (!uri) {
+    console.error('MONGO_URI environment variable is not set!');
+    throw new Error('MONGO_URI not set - Please configure it in Vercel environment variables');
+  }
   
   // If URI ends with a slash and no db name, append a default database
   if (/^mongodb(.+):\/\//.test(uri) && /\/$/.test(uri)) {

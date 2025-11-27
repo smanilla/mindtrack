@@ -18,7 +18,17 @@ app.use(async (req, res, next) => {
     await connectDB();
   } catch (err) {
     console.error('Database connection error:', err);
-    return res.status(500).json({ message: 'Database connection failed' });
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      MONGO_URI_set: !!process.env.MONGO_URI,
+      MONGO_URI_length: process.env.MONGO_URI ? process.env.MONGO_URI.length : 0
+    });
+    // Return more helpful error message in development
+    const errorMessage = process.env.NODE_ENV === 'production' 
+      ? 'Database connection failed. Check server logs.'
+      : `Database connection failed: ${err.message}`;
+    return res.status(500).json({ message: errorMessage });
   }
   next();
 });
