@@ -28,6 +28,18 @@ function App() {
           <Route path="/register" element={<Register />} />
           <Route path="/" element={<Navigate to="/login" replace />} />
           
+          {/* Redirect /dashboard to role-based dashboard */}
+          <Route path="/dashboard" element={
+            (() => {
+              const user = JSON.parse(localStorage.getItem('user') || 'null');
+              if (user?.role === 'doctor') {
+                return <Navigate to="/doctor/dashboard" replace />;
+              } else {
+                return <Navigate to="/patient/dashboard" replace />;
+              }
+            })()
+          } />
+          
           {/* Doctor routes */}
           <Route path="/doctor/dashboard" element={
             <>
