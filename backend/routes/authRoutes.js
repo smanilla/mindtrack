@@ -28,7 +28,16 @@ router.post('/register', async (req, res) => {
     const token = signToken(user._id);
     res.status(201).json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Register error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
@@ -43,7 +52,16 @@ router.post('/login', async (req, res) => {
     const token = signToken(user._id);
     res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {
-    res.status(500).json({ message: 'Server error' });
+    console.error('Login error:', err);
+    console.error('Error details:', {
+      message: err.message,
+      name: err.name,
+      stack: err.stack
+    });
+    res.status(500).json({ 
+      message: 'Server error',
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 });
 
