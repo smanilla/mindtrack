@@ -82,8 +82,42 @@ Do not claim to be a therapist. Include a brief disclaimer that you are an AI.
       // fall through to local summarizer
     }
   }
-  // Fallback summarizer
-  return `Here is a brief summary of your day based on your responses: you experienced a mix of emotions and identified key events and stressors. You showed awareness of triggers and coping strategies, and acknowledged your needs around sleep, energy, and connection. Strengths I notice: your self-awareness, willingness to reflect, and effort to care for yourself. Consider two small next steps: (1) schedule one supportive activity (walk, call a friend, journaling) and (2) set a realistic sleep routine tonight. I am an AI providing general emotional support, not a licensed therapist.`;
+  // Fallback summarizer - generate varied summaries based on content
+  const allAnswers = answers.join(' ').toLowerCase();
+  const hasPositive = /good|great|happy|positive|better|improved/.test(allAnswers);
+  const hasStress = /stress|anxious|worried|difficult|challenging|hard/.test(allAnswers);
+  const hasSleep = /sleep|tired|rest|energy/.test(allAnswers);
+  const hasSocial = /friend|family|people|social|talk|support/.test(allAnswers);
+  
+  let summary = 'Based on your responses today: ';
+  
+  if (hasPositive && !hasStress) {
+    summary += 'You experienced a generally positive day with good emotional awareness. ';
+    summary += 'Your ability to recognize positive moments and maintain balance shows strong self-awareness. ';
+    summary += 'Strengths: positive outlook, emotional regulation, self-care practices. ';
+    summary += 'Next steps: (1) continue maintaining your current self-care routine, (2) consider documenting what contributed to your positive mood today. ';
+  } else if (hasStress && !hasPositive) {
+    summary += 'You navigated some challenges today and used coping strategies to manage stress. ';
+    summary += 'Your awareness of triggers and willingness to use techniques shows resilience. ';
+    summary += 'Strengths: stress recognition, use of coping strategies, self-awareness. ';
+    summary += 'Next steps: (1) practice the breathing exercises that helped today, (2) consider reaching out to your support network if stress continues. ';
+  } else {
+    summary += 'You experienced a mixed day with both positive moments and some challenges. ';
+    summary += 'Your balanced perspective and use of multiple coping strategies demonstrates good emotional intelligence. ';
+    summary += 'Strengths: balanced perspective, adaptive coping, emotional awareness. ';
+    summary += 'Next steps: (1) continue using the strategies that worked today, (2) maintain your sleep and self-care routines. ';
+  }
+  
+  if (hasSleep) {
+    summary += 'Your attention to sleep patterns is important for overall well-being. ';
+  }
+  if (hasSocial) {
+    summary += 'Your social connections appear to be a valuable source of support. ';
+  }
+  
+  summary += 'I am an AI providing general emotional support, not a licensed therapist. If you need professional help, please consult with a mental health professional.';
+  
+  return summary;
 }
 
 async function sendRedAlertEmails({ requester, summary, answers, extraContacts = [] }) {

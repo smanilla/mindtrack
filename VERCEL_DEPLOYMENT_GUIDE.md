@@ -160,6 +160,7 @@ The backend needs to be converted to serverless functions. The configuration fil
 4. **IMPORTANT - Configure the project**:
    - **Framework Preset**: Select **"Other"**
    - **Root Directory**: Click **"Edit"** → Click **"Set Root Directory"** → Select `backend` folder → Click **"Continue"**
+     - **Note**: `mindtrack` is your repo name, but `backend` is the subfolder containing your backend code
    - **Build Command**: Leave empty (Vercel will auto-detect)
    - **Output Directory**: Leave empty
    - **Install Command**: `npm install` (should auto-fill)
@@ -192,6 +193,7 @@ The backend needs to be converted to serverless functions. The configuration fil
 3. **IMPORTANT - Configure the project**:
    - **Framework Preset**: Select **"Vite"** (Vercel should auto-detect it)
    - **Root Directory**: Click **"Edit"** → Click **"Set Root Directory"** → Select `frontend` folder → Click **"Continue"**
+     - **Note**: Same repo (`mindtrack`), but different root directory (`frontend` this time)
    - **Build Command**: `npm run build` (should auto-fill)
    - **Output Directory**: `dist` (should auto-fill)
    - **Install Command**: `npm install` (should auto-fill)

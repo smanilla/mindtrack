@@ -13,11 +13,11 @@ export default function JournalTile() {
   const [error, setError] = useState('');
 
   const moodImages = {
-    very_good: '/pictures/mood_1-removebg-preview.png',
-    good: '/pictures/mood_2-removebg-preview.png',
-    neutral: '/pictures/mood_3-removebg-preview.png',
-    bad: '/pictures/mood_4-removebg-preview.png',
-    very_bad: '/pictures/mood_5-removebg-preview.png'
+    very_good: '/mood_1-removebg-preview.png',
+    good: '/mood_2-removebg-preview.png',
+    neutral: '/mood_3-removebg-preview.png',
+    bad: '/mood_4-removebg-preview.png',
+    very_bad: '/mood_5-removebg-preview.png'
   };
 
   function handleMoodSelect(moodValue) {

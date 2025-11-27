@@ -283,7 +283,7 @@ export default function DoctorDashboard() {
               </div>
 
               {/* Journals Section */}
-              <div className="card" style={{background: '#f8fafc'}}>
+              <div className="card" style={{background: '#f8fafc', marginBottom: '20px'}}>
                 <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
                   <h3 style={{marginTop: 0}}>Recent Journals</h3>
                   <button className="close-btn" onClick={() => navigate(`/doctor/patient/${selectedPatient}/report`)}>View Report</button>
@@ -300,6 +300,47 @@ export default function DoctorDashboard() {
                         </div>
                         <div style={{fontSize: '14px', color: '#555', marginTop: '8px'}}>
                           {journal.content.length > 100 ? journal.content.substring(0, 100) + '...' : journal.content}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* AI Assessments Section */}
+              <div className="card" style={{background: '#f8fafc'}}>
+                <h3 style={{marginTop: 0}}>🤖 AI Assessment Summaries</h3>
+                {patientDetails.assessments && patientDetails.assessments.length === 0 ? (
+                  <p style={{color: '#666', fontStyle: 'italic'}}>No AI assessments yet</p>
+                ) : (
+                  <div className="assessments-list">
+                    {patientDetails.assessments.slice(0, 10).map(assessment => (
+                      <div key={assessment._id} className="assessment-item" style={{
+                        padding: '16px',
+                        marginBottom: '12px',
+                        background: assessment.crisis ? '#fee2e2' : '#f0f9ff',
+                        border: assessment.crisis ? '2px solid #ef4444' : '1px solid #e0e7ff',
+                        borderRadius: '8px'
+                      }}>
+                        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px'}}>
+                          <div style={{fontSize: '12px', color: '#666'}}>
+                            {formatDate(assessment.createdAt)}
+                          </div>
+                          {assessment.crisis && (
+                            <span style={{
+                              background: '#ef4444',
+                              color: 'white',
+                              padding: '4px 8px',
+                              borderRadius: '4px',
+                              fontSize: '11px',
+                              fontWeight: 'bold'
+                            }}>
+                              ⚠️ CRISIS FLAG
+                            </span>
+                          )}
+                        </div>
+                        <div style={{fontSize: '14px', color: '#333', lineHeight: '1.6'}}>
+                          {assessment.summary}
                         </div>
                       </div>
                     ))}
