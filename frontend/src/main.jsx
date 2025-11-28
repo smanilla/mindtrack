@@ -15,6 +15,9 @@ import AllEntries from './pages/AllEntries.jsx'
 import ReadJournal from './pages/ReadJournal.jsx'
 import PatientSummaries from './pages/PatientSummaries.jsx'
 import DoctorPatientReport from './pages/DoctorPatientReport.jsx'
+import DoctorPatientEntries from './pages/DoctorPatientEntries.jsx'
+import DoctorPatientJournals from './pages/DoctorPatientJournals.jsx'
+import DoctorPatientAssessments from './pages/DoctorPatientAssessments.jsx'
 import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
 import './style.css'
@@ -79,6 +82,27 @@ function App() {
             <>
               <Header />
               <DoctorPatientReport />
+              <Footer />
+            </>
+          } />
+          <Route path="/doctor/patient/:patientId/entries" element={
+            <>
+              <Header />
+              <DoctorPatientEntries />
+              <Footer />
+            </>
+          } />
+          <Route path="/doctor/patient/:patientId/journals" element={
+            <>
+              <Header />
+              <DoctorPatientJournals />
+              <Footer />
+            </>
+          } />
+          <Route path="/doctor/patient/:patientId/assessments" element={
+            <>
+              <Header />
+              <DoctorPatientAssessments />
               <Footer />
             </>
           } />

@@ -253,7 +253,26 @@ export default function DoctorDashboard() {
 
               {/* Entries Section */}
               <div className="card" style={{background: '#f8fafc', marginBottom: '20px'}}>
-                <h3 style={{marginTop: 0}}>Recent Entries</h3>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center', marginBottom: '12px'}}>
+                  <h3 style={{marginTop: 0}}>Recent Entries</h3>
+                  {patientDetails.entries.length > 5 && (
+                    <button 
+                      onClick={() => navigate(`/doctor/patient/${selectedPatient}/entries`)}
+                      style={{
+                        background: '#75B1BE',
+                        color: '#000',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      See All ({patientDetails.entries.length})
+                    </button>
+                  )}
+                </div>
                 {patientDetails.entries.length === 0 ? (
                   <p style={{color: '#666', fontStyle: 'italic'}}>No entries yet</p>
                 ) : (
@@ -284,9 +303,28 @@ export default function DoctorDashboard() {
 
               {/* Journals Section */}
               <div className="card" style={{background: '#f8fafc', marginBottom: '20px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center', marginBottom: '12px'}}>
                   <h3 style={{marginTop: 0}}>Recent Journals</h3>
-                  <button className="close-btn" onClick={() => navigate(`/doctor/patient/${selectedPatient}/report`)}>View Report</button>
+                  <div style={{display: 'flex', gap: '8px'}}>
+                    {patientDetails.journals.length > 5 && (
+                      <button 
+                        onClick={() => navigate(`/doctor/patient/${selectedPatient}/journals`)}
+                        style={{
+                          background: '#75B1BE',
+                          color: '#000',
+                          border: 'none',
+                          padding: '6px 12px',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          fontSize: '13px',
+                          fontWeight: '500'
+                        }}
+                      >
+                        See All ({patientDetails.journals.length})
+                      </button>
+                    )}
+                    <button className="close-btn" onClick={() => navigate(`/doctor/patient/${selectedPatient}/report`)}>View Report</button>
+                  </div>
                 </div>
                 {patientDetails.journals.length === 0 ? (
                   <p style={{color: '#666', fontStyle: 'italic'}}>No journal entries yet</p>
@@ -309,7 +347,26 @@ export default function DoctorDashboard() {
 
               {/* AI Assessments Section */}
               <div className="card" style={{background: '#f8fafc'}}>
-                <h3 style={{marginTop: 0}}>🤖 AI Assessment Summaries</h3>
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center', marginBottom: '12px'}}>
+                  <h3 style={{marginTop: 0}}>🤖 AI Assessment Summaries</h3>
+                  {patientDetails.assessments && patientDetails.assessments.length > 10 && (
+                    <button 
+                      onClick={() => navigate(`/doctor/patient/${selectedPatient}/assessments`)}
+                      style={{
+                        background: '#75B1BE',
+                        color: '#000',
+                        border: 'none',
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        fontWeight: '500'
+                      }}
+                    >
+                      See All ({patientDetails.assessments.length})
+                    </button>
+                  )}
+                </div>
                 {patientDetails.assessments && patientDetails.assessments.length === 0 ? (
                   <p style={{color: '#666', fontStyle: 'italic'}}>No AI assessments yet</p>
                 ) : (

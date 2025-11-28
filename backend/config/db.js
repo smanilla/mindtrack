@@ -34,8 +34,8 @@ async function connectDB() {
   mongoose.set('strictQuery', true);
   
   try {
-    await mongoose.connect(uri);
-    console.log('MongoDB connected');
+  await mongoose.connect(uri);
+  console.log('MongoDB connected');
     cachedConnection = mongoose.connection;
     return mongoose.connection;
   } catch (error) {

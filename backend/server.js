@@ -82,15 +82,15 @@ app.use((err, req, res, next) => {
 // Only start server if not in Vercel serverless environment
 // Vercel serverless functions don't need app.listen()
 if (process.env.VERCEL !== '1') {
-  const PORT = process.env.PORT || 5000;
-  connectDB()
-    .then(() => {
-      app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-    })
-    .catch((err) => {
-      console.error('Failed to connect to DB', err);
-      process.exit(1);
-    });
+const PORT = process.env.PORT || 5000;
+connectDB()
+  .then(() => {
+    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch((err) => {
+    console.error('Failed to connect to DB', err);
+    process.exit(1);
+  });
 }
 
 // Export for Vercel serverless
