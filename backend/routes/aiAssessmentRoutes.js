@@ -426,6 +426,7 @@ router.get('/voice-message-test-twilio', (req, res) => {
 
 // Call status callback endpoint (for debugging) - MUST be POST and not protected
 // Twilio sends form-encoded data, not JSON
+// CRITICAL: Must return 200 OK quickly, or Twilio will retry and show warnings
 router.post('/call-status', express.urlencoded({ extended: true }), (req, res) => {
   console.log('=== CALL STATUS CALLBACK ===');
   console.log('Request body keys:', Object.keys(req.body || {}));
@@ -435,8 +436,14 @@ router.post('/call-status', express.urlencoded({ extended: true }), (req, res) =
   console.log('Call Direction:', req.body?.Direction || 'NOT FOUND');
   console.log('From:', req.body?.From || 'NOT FOUND');
   console.log('To:', req.body?.To || 'NOT FOUND');
-  console.log('All callback data:', req.body);
-  res.status(200).send('OK');
+  
+  // Return immediately to avoid Twilio warnings
+  res.status(200).type('text/plain').send('OK');
+  
+  // Log after sending response (async)
+  setTimeout(() => {
+    console.log('All callback data:', req.body);
+  }, 0);
 });
 
 async function sendRedAlertEmails({ requester, summary, answers, extraContacts = [] }) {
