@@ -190,6 +190,7 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
   }
 
   // Use TwiML Bin URL if provided, otherwise use our endpoint with patient name
+  // Note: For pre-recorded audio, patientName is still passed but may not be used if RED_ALERT_VOICE_AUDIO_URL is set
   const baseUrl = process.env.API_URL || process.env.TWIML_BIN_URL || 'http://localhost:5000';
   const twimlUrl = process.env.TWIML_BIN_URL 
     ? process.env.TWIML_BIN_URL 
@@ -211,12 +212,34 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
 }
 
 // TwiML endpoint for voice message
+// Supports both pre-recorded audio and text-to-speech
 router.get('/voice-message', (req, res) => {
   const patientName = req.query.patientName || 'a patient';
-  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+  
+  // Check if custom audio URL is configured
+  const audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
+  
+  let twiml;
+  
+  if (audioUrl) {
+    // Use pre-recorded audio file (MP3, WAV, etc.)
+    // Audio file should be publicly accessible (hosted on CDN, S3, etc.)
+    twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Say voice="alice">Hello, this is an urgent alert from MindTrack. ${patientName} has indicated they may be in crisis and needs immediate support. Please reach out to them as soon as possible. If this is an emergency, please call 911. Thank you.</Say>
+  <Play>${audioUrl}</Play>
+  <Hangup/>
 </Response>`;
+  } else {
+    // Fallback to text-to-speech (can be customized for Bangladesh/Bengali)
+    const voice = process.env.TWILIO_VOICE || 'alice'; // Options: alice, man, woman, polly.Aditi (for Bengali support)
+    const language = process.env.TWILIO_LANGUAGE || 'en'; // Can be 'bn' for Bengali if using Polly
+    twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Say voice="${voice}" language="${language}">Hello, this is an urgent alert from MindTrack. ${patientName} has indicated they may be in crisis and needs immediate support. Please reach out to them as soon as possible. If this is an emergency, please call 999. Thank you.</Say>
+  <Hangup/>
+</Response>`;
+  }
+  
   res.type('text/xml');
   res.send(twiml);
 });
