@@ -397,18 +397,41 @@ router.get('/voice-message-test', (req, res) => {
 
 // Test endpoint with Twilio's known working audio file (for comparison)
 router.get('/voice-message-test-twilio', (req, res) => {
+  console.log('=== TEST TWILIO ENDPOINT CALLED ===');
+  console.log('Request headers:', {
+    'user-agent': req.headers['user-agent'],
+    'x-twilio-signature': req.headers['x-twilio-signature'] ? 'Present' : 'Missing'
+  });
+  
   // Use Twilio's test audio file to verify Play tag works
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="2"/>
+  <Say>Testing audio playback. You should hear a cowbell sound now.</Say>
+  <Pause length="1"/>
   <Play>https://api.twilio.com/cowbell.mp3</Play>
   <Pause length="1"/>
+  <Say>Audio test complete.</Say>
   <Hangup/>
 </Response>`;
   
+  console.log('Sending test TwiML:', twiml);
   res.type('text/xml');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
   res.send(twiml);
+});
+
+// Call status callback endpoint (for debugging) - MUST be POST and not protected
+router.post('/call-status', (req, res) => {
+  console.log('=== CALL STATUS CALLBACK ===');
+  console.log('Call SID:', req.body.CallSid);
+  console.log('Call Status:', req.body.CallStatus);
+  console.log('Call Duration:', req.body.CallDuration);
+  console.log('Call Direction:', req.body.Direction);
+  console.log('From:', req.body.From);
+  console.log('To:', req.body.To);
+  console.log('All callback data:', req.body);
+  res.status(200).send('OK');
 });
 
 async function sendRedAlertEmails({ requester, summary, answers, extraContacts = [] }) {
