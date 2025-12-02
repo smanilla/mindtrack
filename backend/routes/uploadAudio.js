@@ -19,7 +19,6 @@ const upload = multer({
 });
 
 // Upload audio file to Vercel Blob Storage
-// Note: Order matters - protect and authorize must run before multer
 router.post('/audio', protect, authorize('doctor'), upload.single('audio'), async (req, res) => {
   console.log('Upload endpoint hit - User authenticated');
   console.log('User:', req.user?.email, 'Role:', req.user?.role);
@@ -57,6 +56,15 @@ router.post('/audio', protect, authorize('doctor'), upload.single('audio'), asyn
     console.error('Upload error:', error);
     res.status(500).json({ message: 'Failed to upload audio file', error: error.message });
   }
+});
+
+// Test endpoint to verify auth works (without file upload)
+router.get('/test-auth', protect, authorize('doctor'), (req, res) => {
+  res.json({ 
+    message: 'Auth works!', 
+    user: req.user.email, 
+    role: req.user.role 
+  });
 });
 
 module.exports = router;
