@@ -38,6 +38,15 @@ app.use((req, res, next) => {
     console.log('Content-Type:', req.headers['content-type']);
     console.log('Authorization header:', req.headers.authorization ? `${req.headers.authorization.substring(0, 60)}...` : 'MISSING');
   }
+  // Log all voice-message endpoint requests (to see if Twilio is calling it)
+  if (req.path.includes('/voice-message')) {
+    console.log('=== GLOBAL: VOICE MESSAGE REQUEST ===');
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('User-Agent:', req.headers['user-agent']);
+    console.log('X-Twilio-Signature:', req.headers['x-twilio-signature'] ? 'Present' : 'Missing');
+    console.log('IP:', req.ip || req.headers['x-forwarded-for']);
+  }
   next();
 });
 
