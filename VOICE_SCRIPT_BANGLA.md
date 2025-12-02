@@ -122,13 +122,15 @@ git push
    ```
    https://raw.githubusercontent.com/your-username/your-repo/main/public/red-alert-voice-bangla.mp3
    ```
-
+https://github.com/smanilla/mindtrack/blob/c0152815309e62fff7b67986a10fd25381261406/public/red-alert-voice-bangla.mp3
 ---
 
 ## ⚙️ Add to Vercel
 
 ### Step 1: Go to Vercel Environment Variables
-1. Go to **Vercel** → Your Project → **Settings** → **Environment Variables**
+1. Go to **Vercel** → Your **Backend** Project → **Settings** → **Environment Variables**
+   - ⚠️ **IMPORTANT**: This must be added to your **BACKEND** project, not frontend!
+   - The backend handles all Twilio voice calls
 
 ### Step 2: Add the URL
 1. Click **"Add New"**
