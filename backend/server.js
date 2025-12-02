@@ -46,7 +46,8 @@ app.get('/', (req, res) => {
       '/api/ai',
       '/api/doctor',
       '/api/ai-assessment',
-      '/api/ai-chat'
+      '/api/ai-chat',
+      '/api/upload'
     ]
   });
 });
@@ -63,7 +64,15 @@ app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/journals', require('./routes/journalRoutes'));
 app.use('/api/doctor', require('./routes/doctorRoutes'));
 app.use('/api/ai-assessment', require('./routes/aiAssessmentRoutes'));
-app.use('/api/upload', require('./routes/uploadAudio'));
+
+// Upload routes
+try {
+  const uploadRoutes = require('./routes/uploadAudio');
+  app.use('/api/upload', uploadRoutes);
+  console.log('Upload routes loaded successfully');
+} catch (error) {
+  console.error('Upload routes failed to load:', error);
+}
 
 // AI Chat routes (only load if OpenAI is configured)
 try {

@@ -19,9 +19,15 @@ const upload = multer({
 });
 
 // Upload audio file to Vercel Blob Storage
+// Note: Order matters - protect and authorize must run before multer
 router.post('/audio', protect, authorize('doctor'), upload.single('audio'), async (req, res) => {
+  console.log('Upload endpoint hit - User authenticated');
+  console.log('User:', req.user?.email, 'Role:', req.user?.role);
+  console.log('File received:', !!req.file, 'File size:', req.file?.size);
+  
   try {
     if (!req.file) {
+      console.log('No file in request');
       return res.status(400).json({ message: 'No audio file provided. Send multipart/form-data with field name "audio"' });
     }
 
