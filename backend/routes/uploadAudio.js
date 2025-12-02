@@ -19,7 +19,27 @@ const upload = multer({
 });
 
 // Upload audio file to Vercel Blob Storage
-router.post('/audio', protect, authorize('doctor'), upload.single('audio'), async (req, res) => {
+// CRITICAL: Auth must run BEFORE multer to ensure headers are read correctly
+
+router.post('/audio', 
+  // Step 1: Log request BEFORE any processing
+  (req, res, next) => {
+    console.log('=== UPLOAD ROUTE HIT ===');
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Authorization header present:', !!req.headers.authorization);
+    if (req.headers.authorization) {
+      console.log('Authorization value (first 60 chars):', req.headers.authorization.substring(0, 60));
+    }
+    next();
+  },
+  // Step 2: Run auth BEFORE multer (this is critical!)
+  protect, 
+  authorize('doctor'),
+  // Step 3: Now run multer (after auth is verified)
+  upload.single('audio'),
+  async (req, res) => {
   console.log('Upload endpoint hit - User authenticated');
   console.log('User:', req.user?.email, 'Role:', req.user?.role);
   console.log('File received:', !!req.file, 'File size:', req.file?.size);

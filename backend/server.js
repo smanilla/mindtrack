@@ -9,7 +9,29 @@ const app = express();
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// CRITICAL: express.json() can interfere with multipart/form-data
+// Only parse JSON for non-upload routes
+app.use((req, res, next) => {
+  // Skip JSON parsing for multipart/form-data (file uploads)
+  if (req.path.includes('/upload') && req.headers['content-type']?.includes('multipart/form-data')) {
+    console.log('Skipping express.json() for multipart request');
+    return next();
+  }
+  express.json()(req, res, next);
+});
+
+// Log all incoming requests for debugging
+app.use((req, res, next) => {
+  if (req.path.includes('/upload')) {
+    console.log('=== GLOBAL REQUEST DEBUG ===');
+    console.log('Method:', req.method);
+    console.log('Path:', req.path);
+    console.log('Content-Type:', req.headers['content-type']);
+    console.log('Authorization header:', req.headers.authorization ? `${req.headers.authorization.substring(0, 60)}...` : 'MISSING');
+  }
+  next();
+});
 
 // Database connection middleware (for Vercel serverless)
 // This ensures DB is connected on each request in serverless environment

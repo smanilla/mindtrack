@@ -2,14 +2,25 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 async function protect(req, res, next) {
+  console.log('=== PROTECT MIDDLEWARE CALLED ===');
+  console.log('Request path:', req.path);
+  console.log('Request method:', req.method);
+  console.log('Content-Type:', req.headers['content-type']);
+  console.log('All headers keys:', Object.keys(req.headers));
+  
   const header = req.headers.authorization || '';
+  console.log('Authorization header (raw):', header ? `${header.substring(0, 50)}...` : 'MISSING');
+  
   const token = header.startsWith('Bearer ') ? header.split(' ')[1] : null;
   
   if (!token) {
     console.log('Auth failed: No token provided');
     console.log('Authorization header:', req.headers.authorization);
+    console.log('Header starts with Bearer?:', header.startsWith('Bearer '));
     return res.status(401).json({ message: 'Not authorized' });
   }
+  
+  console.log('Token extracted (first 50 chars):', token.substring(0, 50));
   
   try {
     if (!process.env.JWT_SECRET) {
@@ -41,6 +52,8 @@ async function protect(req, res, next) {
       console.log('Auth failed: User not found for ID:', decoded.id);
       return res.status(401).json({ message: 'User not found' });
     }
+    
+    console.log('Token verified successfully for user:', decoded.id);
     
     console.log('Auth successful for user:', req.user.email, 'role:', req.user.role);
     next();
