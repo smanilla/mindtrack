@@ -247,19 +247,37 @@ Add these **5 variables** one by one:
 
 ### 7.1 Record Your Message
 1. Record a voice message (in Bengali or English):
-   - Example: *"Hello, this is an urgent alert from MindTrack. [Patient Name] has indicated they may be in crisis and needs immediate support. Please reach out to them as soon as possible. If this is an emergency, please call 999. Thank you."*
+   - **Bengali Script**: See `VOICE_SCRIPT_BANGLA.md` for the complete Bengali script
+   - **English Example**: *"Hello, this is an urgent alert from MindTrack. [Patient Name] has indicated they may be in crisis and needs immediate support. Please reach out to them as soon as possible. If this is an emergency, please call 999. Thank you."*
 2. Save it as **MP3** or **WAV** file
 3. Keep it short (20-30 seconds)
+4. **Speak clearly and slowly** - Practice first!
 
 ### 7.2 Upload to a Free Hosting Service
 
 **Option A: GitHub (Easiest & Free)**
 1. Go to your GitHub repository
-2. Create a folder called `public` or `audio`
-3. Upload your MP3 file there
-4. Click on the file
-5. Click **"Raw"** button
-6. Copy the URL (looks like: `https://raw.githubusercontent.com/username/repo/main/audio.mp3`)
+2. **Method 1 - Using GitHub Desktop (Recommended)**:
+   - Download GitHub Desktop: https://desktop.github.com/
+   - Clone your repository
+   - Create a `public` folder
+   - Copy your MP3 file into the `public` folder
+   - Commit and push
+3. **Method 2 - Using Git Command Line**:
+   ```bash
+   mkdir -p public
+   cp your-file.mp3 public/red-alert-voice-bangla.mp3
+   git add public/red-alert-voice-bangla.mp3
+   git commit -m "Add voice alert"
+   git push
+   ```
+4. Go to your GitHub repo on the web
+5. Navigate to: `public/red-alert-voice-bangla.mp3`
+6. Click on the file
+7. Click **"Raw"** button
+8. Copy the URL (looks like: `https://raw.githubusercontent.com/username/repo/main/public/red-alert-voice-bangla.mp3`)
+   
+**Note**: See `VOICE_SCRIPT_BANGLA.md` for detailed Bengali script and step-by-step instructions!
 
 **Option B: Vercel Blob (Free)**
 1. Install: `npm install @vercel/blob`
