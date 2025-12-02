@@ -191,7 +191,27 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
 
   // Use TwiML Bin URL if provided, otherwise use our endpoint with patient name
   // Note: For pre-recorded audio, patientName is still passed but may not be used if RED_ALERT_VOICE_AUDIO_URL is set
-  const baseUrl = process.env.API_URL || process.env.TWIML_BIN_URL || 'http://localhost:5000';
+  // Auto-detect Vercel URL if API_URL is not set
+  let baseUrl = process.env.API_URL;
+  if (!baseUrl) {
+    // Try to auto-detect Vercel URL
+    if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else if (process.env.VERCEL) {
+      // In Vercel, we can construct from request headers if available
+      // But for now, fallback to requiring API_URL
+      console.error('API_URL not set. Please set API_URL environment variable to your Vercel backend URL.');
+      return { sent: false, reason: 'api_url_not_configured', error: 'API_URL environment variable is required' };
+    } else {
+      baseUrl = 'http://localhost:5000';
+    }
+  }
+  
+  // Ensure baseUrl has protocol
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    baseUrl = `https://${baseUrl}`;
+  }
+  
   const twimlUrl = process.env.TWIML_BIN_URL 
     ? process.env.TWIML_BIN_URL 
     : `${baseUrl}/api/ai-assessment/voice-message?patientName=${encodeURIComponent(patientName)}`;

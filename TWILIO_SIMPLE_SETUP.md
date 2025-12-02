@@ -175,15 +175,25 @@ Add these **5 variables** one by one:
 4. **Environment**: Select **"Production"** (or all three)
 5. Click **"Save"**
 
-#### Variable 5: API_URL
+#### Variable 5: API_URL (IMPORTANT!)
 1. Click **"Add New"** button
 2. **Key**: Type exactly: `API_URL`
 3. **Value**: Your Vercel backend URL
-   - It looks like: `https://your-project-name.vercel.app`
+   - **From your error logs, it should be**: `https://mindtrack-gamma.vercel.app`
    - Find it in Vercel → Your Project → Settings → Domains
-   - OR it's the URL where your backend is deployed
-4. **Environment**: Select **"Production"** (or all three)
+   - OR check your Vercel deployment URL
+   - **MUST start with https://** (not http://)
+   - **MUST NOT have a trailing slash** (no / at the end)
+   - Example: `https://mindtrack-gamma.vercel.app` ✅
+   - Wrong: `http://mindtrack-gamma.vercel.app` ❌
+   - Wrong: `https://mindtrack-gamma.vercel.app/` ❌
+4. **Environment**: Select **"Production"** (or all three: Production, Preview, Development)
 5. Click **"Save"**
+   
+**⚠️ CRITICAL**: This is the most common mistake! Make sure:
+- URL starts with `https://`
+- URL does NOT end with `/`
+- URL is your actual Vercel backend domain
 
 ✅ **All 5 variables are now added!**
 
@@ -316,8 +326,13 @@ Add these **5 variables** one by one:
 - Format: `+8801712345678` (not `01712345678`)
 - No spaces or dashes
 
-### Problem: Calls not going through
+### Problem: Calls not going through / "Url is not a valid URL: http://localhost:5000"
 **Solution**:
+- **This is the #1 issue!** Your `API_URL` is not set correctly
+- Go to Vercel → Settings → Environment Variables
+- Check `API_URL` is set to: `https://your-backend.vercel.app` (with https://, no trailing slash)
+- From your logs, it should be: `https://mindtrack-gamma.vercel.app`
+- After fixing, **Redeploy** your project
 - Verify the number in Twilio Console (for trial accounts)
 - Check Twilio account has credits (check dashboard)
 - Check phone number format is correct
