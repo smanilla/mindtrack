@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
+
+// Middleware for parsing form-encoded data (for Twilio callbacks)
+router.use(express.urlencoded({ extended: true }));
 const User = require('../models/User');
 const Assessment = require('../models/Assessment');
 
@@ -422,14 +425,16 @@ router.get('/voice-message-test-twilio', (req, res) => {
 });
 
 // Call status callback endpoint (for debugging) - MUST be POST and not protected
-router.post('/call-status', (req, res) => {
+// Twilio sends form-encoded data, not JSON
+router.post('/call-status', express.urlencoded({ extended: true }), (req, res) => {
   console.log('=== CALL STATUS CALLBACK ===');
-  console.log('Call SID:', req.body.CallSid);
-  console.log('Call Status:', req.body.CallStatus);
-  console.log('Call Duration:', req.body.CallDuration);
-  console.log('Call Direction:', req.body.Direction);
-  console.log('From:', req.body.From);
-  console.log('To:', req.body.To);
+  console.log('Request body keys:', Object.keys(req.body || {}));
+  console.log('Call SID:', req.body?.CallSid || 'NOT FOUND');
+  console.log('Call Status:', req.body?.CallStatus || 'NOT FOUND');
+  console.log('Call Duration:', req.body?.CallDuration || 'NOT FOUND');
+  console.log('Call Direction:', req.body?.Direction || 'NOT FOUND');
+  console.log('From:', req.body?.From || 'NOT FOUND');
+  console.log('To:', req.body?.To || 'NOT FOUND');
   console.log('All callback data:', req.body);
   res.status(200).send('OK');
 });
