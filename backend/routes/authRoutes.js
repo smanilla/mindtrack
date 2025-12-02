@@ -52,6 +52,12 @@ router.post('/login', async (req, res) => {
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
     const match = await user.comparePassword(password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
+    
+    // Log secret being used for signing
+    const secret = (process.env.JWT_SECRET || '').trim();
+    console.log('Login - JWT_SECRET length:', secret.length);
+    console.log('Login - JWT_SECRET (first 15 chars):', secret.substring(0, 15));
+    
     const token = signToken(user._id);
     res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });
   } catch (err) {

@@ -19,8 +19,20 @@ async function protect(req, res, next) {
     
     // Trim any whitespace that might have been added
     const secret = process.env.JWT_SECRET.trim();
+    console.log('=== AUTH DEBUG ===');
     console.log('JWT_SECRET length:', secret.length);
     console.log('JWT_SECRET (first 15 chars):', secret.substring(0, 15));
+    console.log('JWT_SECRET (last 3 chars):', secret.substring(secret.length - 3));
+    console.log('JWT_SECRET (full):', secret);
+    
+    // Decode token without verification first to see what's in it
+    try {
+      const unverified = jwt.decode(token, { complete: true });
+      console.log('Token header:', unverified?.header);
+      console.log('Token payload:', unverified?.payload);
+    } catch (e) {
+      console.log('Could not decode token:', e.message);
+    }
     
     const decoded = jwt.verify(token, secret);
     req.user = await User.findById(decoded.id).select('-password');
