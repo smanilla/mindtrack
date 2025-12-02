@@ -226,14 +226,18 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     console.log('TwiML URL:', twimlUrl);
     
     // Create a voice call with TwiML
+    // CRITICAL: Twilio fetches TwiML when call is answered
+    // The URL must be publicly accessible (no auth required)
     const call = await twilioClient.calls.create({
       to: formattedPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
       url: twimlUrl,
       method: 'GET',
-      statusCallback: `${baseUrl}/api/ai-assessment/call-status`, // Track call status
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed', 'failed'],
-      statusCallbackMethod: 'POST'
+      // Fix: Use valid status callback events only (removed 'failed' - not a valid event)
+      statusCallback: `${baseUrl}/api/ai-assessment/call-status`,
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+      statusCallbackMethod: 'POST',
+      timeout: 30
     });
     
     console.log('Call created successfully');
