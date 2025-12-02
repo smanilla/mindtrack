@@ -10,16 +10,24 @@ const app = express();
 // Middleware
 app.use(cors());
 
-// CRITICAL: express.json() can interfere with multipart/form-data
-// Only parse JSON for non-upload routes
+// CRITICAL: express.json() can interfere with multipart/form-data and form-encoded data
+// Only parse JSON for non-upload routes and non-Twilio routes
 app.use((req, res, next) => {
   // Skip JSON parsing for multipart/form-data (file uploads)
   if (req.path.includes('/upload') && req.headers['content-type']?.includes('multipart/form-data')) {
     console.log('Skipping express.json() for multipart request');
     return next();
   }
+  // Skip JSON parsing for Twilio callbacks (form-encoded)
+  if (req.path.includes('/call-status') && req.headers['content-type']?.includes('application/x-www-form-urlencoded')) {
+    console.log('Skipping express.json() for Twilio callback');
+    return next();
+  }
   express.json()(req, res, next);
 });
+
+// Add form-encoded parser for Twilio callbacks
+app.use(express.urlencoded({ extended: true }));
 
 // Log all incoming requests for debugging
 app.use((req, res, next) => {
