@@ -237,19 +237,40 @@ router.get('/voice-message', (req, res) => {
   const patientName = req.query.patientName || 'a patient';
   
   // Check if custom audio URL is configured
-  const audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
+  let audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
+  
+  // Debug logging
+  console.log('Voice message endpoint called');
+  console.log('RED_ALERT_VOICE_AUDIO_URL exists:', !!audioUrl);
+  if (audioUrl) {
+    console.log('RED_ALERT_VOICE_AUDIO_URL value:', audioUrl.substring(0, 50) + '...');
+  }
+  
+  // Convert GitHub blob URL to raw URL if needed
+  if (audioUrl && audioUrl.includes('github.com') && audioUrl.includes('/blob/')) {
+    audioUrl = audioUrl.replace('/blob/', '/').replace('github.com', 'raw.githubusercontent.com');
+    console.log('Converted GitHub URL to raw URL:', audioUrl);
+  }
+  
+  // Ensure URL is properly encoded for XML
+  if (audioUrl) {
+    // Escape XML special characters in URL
+    audioUrl = audioUrl.replace(/&/g, '&amp;');
+  }
   
   let twiml;
   
-  if (audioUrl) {
+  if (audioUrl && audioUrl.trim()) {
     // Use pre-recorded audio file (MP3, WAV, etc.)
     // Audio file should be publicly accessible (hosted on CDN, S3, etc.)
+    console.log('Using custom audio URL:', audioUrl);
     twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Play>${audioUrl}</Play>
   <Hangup/>
 </Response>`;
   } else {
+    console.log('RED_ALERT_VOICE_AUDIO_URL not set or empty, using text-to-speech');
     // Fallback to text-to-speech (can be customized for Bangladesh/Bengali)
     const voice = process.env.TWILIO_VOICE || 'alice'; // Options: alice, man, woman, polly.Aditi (for Bengali support)
     const language = process.env.TWILIO_LANGUAGE || 'en'; // Can be 'bn' for Bengali if using Polly
@@ -260,8 +281,19 @@ router.get('/voice-message', (req, res) => {
 </Response>`;
   }
   
+  console.log('Generated TwiML (first 200 chars):', twiml.substring(0, 200));
   res.type('text/xml');
   res.send(twiml);
+});
+
+// Debug endpoint to check environment variables (remove in production)
+router.get('/voice-message-debug', (req, res) => {
+  res.json({
+    hasAudioUrl: !!process.env.RED_ALERT_VOICE_AUDIO_URL,
+    audioUrl: process.env.RED_ALERT_VOICE_AUDIO_URL || 'NOT SET',
+    audioUrlLength: process.env.RED_ALERT_VOICE_AUDIO_URL ? process.env.RED_ALERT_VOICE_AUDIO_URL.length : 0,
+    allEnvVars: Object.keys(process.env).filter(k => k.includes('VOICE') || k.includes('TWILIO'))
+  });
 });
 
 async function sendRedAlertEmails({ requester, summary, answers, extraContacts = [] }) {

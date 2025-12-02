@@ -134,13 +134,15 @@ https://github.com/smanilla/mindtrack/blob/c0152815309e62fff7b67986a10fd25381261
 
 ### Step 2: Add the URL
 1. Click **"Add New"**
-2. **Key**: `RED_ALERT_VOICE_AUDIO_URL`
-3. **Value**: Paste your GitHub raw URL
-   ```
-   https://raw.githubusercontent.com/your-username/your-repo/main/public/red-alert-voice-bangla.mp3
-   ```
-4. **Environment**: Select **"Production"** (or all three)
-5. Click **"Save"**
+2. **Key**: `RED_ALERT_VOICE_AUDIO_URL` (must be exact, case-sensitive!)
+3. **Value**: Paste your GitHub **RAW** URL
+   - ⚠️ **MUST be the raw URL**, not the regular GitHub page URL
+   - **Wrong**: `https://github.com/username/repo/blob/main/public/file.mp3` ❌
+   - **Correct**: `https://raw.githubusercontent.com/username/repo/main/public/red-alert-voice-bangla.mp3` ✅
+   - **How to get it**: GitHub → Click file → Click **"Raw"** button → Copy URL
+4. **Test the URL**: Paste it in a browser - it should download/play the MP3
+5. **Environment**: Select **"Production"** (or all three)
+6. Click **"Save"**
 
 ### Step 3: Redeploy
 1. Go to **"Deployments"** tab
