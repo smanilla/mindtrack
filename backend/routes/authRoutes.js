@@ -6,7 +6,9 @@ const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 function signToken(id) {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  // Trim any whitespace that might have been added
+  const secret = (process.env.JWT_SECRET || '').trim();
+  return jwt.sign({ id }, secret, { expiresIn: '7d' });
 }
 
 // POST /api/auth/register - Only doctors can register

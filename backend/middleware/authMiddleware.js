@@ -17,7 +17,12 @@ async function protect(req, res, next) {
       return res.status(500).json({ message: 'Server configuration error' });
     }
     
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Trim any whitespace that might have been added
+    const secret = process.env.JWT_SECRET.trim();
+    console.log('JWT_SECRET length:', secret.length);
+    console.log('JWT_SECRET (first 15 chars):', secret.substring(0, 15));
+    
+    const decoded = jwt.verify(token, secret);
     req.user = await User.findById(decoded.id).select('-password');
     
     if (!req.user) {
@@ -31,6 +36,8 @@ async function protect(req, res, next) {
     console.error('Token verification failed:', err.message);
     console.error('Token (first 50 chars):', token.substring(0, 50));
     console.error('JWT_SECRET exists:', !!process.env.JWT_SECRET);
+    console.error('JWT_SECRET length:', process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 0);
+    console.error('JWT_SECRET (first 10 chars):', process.env.JWT_SECRET ? process.env.JWT_SECRET.substring(0, 10) : 'NOT SET');
     return res.status(401).json({ message: 'Token invalid', error: process.env.NODE_ENV === 'development' ? err.message : undefined });
   }
 }

@@ -8,7 +8,9 @@ const { protect, authorize } = require('../middleware/authMiddleware');
 const jwt = require('jsonwebtoken');
 
 function signToken(id) {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '7d' });
+  // Trim any whitespace that might have been added
+  const secret = (process.env.JWT_SECRET || '').trim();
+  return jwt.sign({ id }, secret, { expiresIn: '7d' });
 }
 
 // Helper route to fix patients without doctor assignment (for debugging/fixing)
