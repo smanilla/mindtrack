@@ -63,6 +63,7 @@ app.use('/api/ai', require('./routes/aiRoutes'));
 app.use('/api/journals', require('./routes/journalRoutes'));
 app.use('/api/doctor', require('./routes/doctorRoutes'));
 app.use('/api/ai-assessment', require('./routes/aiAssessmentRoutes'));
+app.use('/api/upload', require('./routes/uploadAudio'));
 
 // AI Chat routes (only load if OpenAI is configured)
 try {
