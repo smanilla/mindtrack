@@ -21,6 +21,29 @@ const upload = multer({
 // Upload audio file to Vercel Blob Storage
 // CRITICAL: Auth must run BEFORE multer to ensure headers are read correctly
 
+// Error handler for multer errors
+const handleMulterError = (err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    console.error('Multer error:', err);
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ message: 'File too large. Maximum size is 5MB.' });
+    }
+    if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+      console.error('Unexpected field name:', JSON.stringify(err.field));
+      return res.status(400).json({ 
+        message: 'Unexpected field name. The form field must be exactly "audio" (no spaces, no quotes).',
+        received: err.field,
+        hint: 'In Postman: Body → form-data → Key must be exactly "audio" (type: File)'
+      });
+    }
+    return res.status(400).json({ message: 'File upload error', error: err.message });
+  }
+  if (err) {
+    return res.status(400).json({ message: err.message });
+  }
+  next();
+};
+
 router.post('/audio', 
   // Step 1: Log request BEFORE any processing
   (req, res, next) => {
@@ -39,6 +62,8 @@ router.post('/audio',
   authorize('doctor'),
   // Step 3: Now run multer (after auth is verified)
   upload.single('audio'),
+  // Step 4: Handle multer errors
+  handleMulterError,
   async (req, res) => {
   console.log('Upload endpoint hit - User authenticated');
   console.log('User:', req.user?.email, 'Role:', req.user?.role);
