@@ -269,12 +269,20 @@ router.get('/voice-message', (req, res) => {
     console.log('Safe audio URL:', safeUrl);
     console.log('URL length:', safeUrl.length);
     
+    // Twilio sometimes has issues with certain URLs even if publicly accessible
+    // Try multiple approaches:
+    // 1. Direct Play (simplest)
+    // 2. Play with digits attribute (for DTMF, not needed but sometimes helps)
+    // 3. Wrap in Gather (sometimes more reliable)
+    
+    // First, try the simplest approach with explicit attributes
     // Add Pause to ensure call is established before playing
-    // Use loop="1" to play once (default is 1, but explicit is clearer)
+    // Remove loop attribute - default is 1, but sometimes explicit causes issues
     twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Pause length="2"/>
+  <Play>${safeUrl}</Play>
   <Pause length="1"/>
-  <Play loop="1">${safeUrl}</Play>
   <Hangup/>
 </Response>`;
     
@@ -340,8 +348,25 @@ router.get('/voice-message-test', (req, res) => {
   
   const twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
+  <Pause length="2"/>
+  <Play>${safeUrl}</Play>
   <Pause length="1"/>
-  <Play loop="1">${safeUrl}</Play>
+  <Hangup/>
+</Response>`;
+  
+  res.type('text/xml');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.send(twiml);
+});
+
+// Test endpoint with Twilio's known working audio file (for comparison)
+router.get('/voice-message-test-twilio', (req, res) => {
+  // Use Twilio's test audio file to verify Play tag works
+  const twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Pause length="2"/>
+  <Play>https://api.twilio.com/cowbell.mp3</Play>
+  <Pause length="1"/>
   <Hangup/>
 </Response>`;
   
