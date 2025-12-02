@@ -264,11 +264,20 @@ router.get('/voice-message', (req, res) => {
     // Use pre-recorded audio file (MP3, WAV, etc.)
     // Audio file should be publicly accessible (hosted on CDN, S3, etc.)
     console.log('Using custom audio URL:', audioUrl);
+    
+    // Twilio Play tag requires the URL to be properly formatted
+    // GitHub raw URLs sometimes have issues - try without loop first
+    // Also ensure URL is properly encoded
+    const encodedUrl = encodeURI(audioUrl);
+    console.log('Encoded audio URL:', encodedUrl);
+    
     twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Play>${audioUrl}</Play>
+  <Play>${encodedUrl}</Play>
   <Hangup/>
 </Response>`;
+    
+    console.log('Generated TwiML with Play tag, URL length:', encodedUrl.length);
   } else {
     console.log('RED_ALERT_VOICE_AUDIO_URL not set or empty, using text-to-speech');
     // Fallback to text-to-speech (can be customized for Bangladesh/Bengali)
@@ -281,18 +290,33 @@ router.get('/voice-message', (req, res) => {
 </Response>`;
   }
   
-  console.log('Generated TwiML (first 200 chars):', twiml.substring(0, 200));
+  console.log('Generated TwiML (first 300 chars):', twiml.substring(0, 300));
+  console.log('Full TwiML:', twiml);
   res.type('text/xml');
+  res.setHeader('Cache-Control', 'no-cache');
   res.send(twiml);
 });
 
-// Debug endpoint to check environment variables (remove in production)
+// Debug endpoint to check environment variables and test TwiML
 router.get('/voice-message-debug', (req, res) => {
+  const audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
+  let twiml = '';
+  
+  if (audioUrl && audioUrl.trim()) {
+    twiml = `<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+  <Pause length="1"/>
+  <Play loop="1">${audioUrl}</Play>
+  <Hangup/>
+</Response>`;
+  }
+  
   res.json({
-    hasAudioUrl: !!process.env.RED_ALERT_VOICE_AUDIO_URL,
-    audioUrl: process.env.RED_ALERT_VOICE_AUDIO_URL || 'NOT SET',
-    audioUrlLength: process.env.RED_ALERT_VOICE_AUDIO_URL ? process.env.RED_ALERT_VOICE_AUDIO_URL.length : 0,
-    allEnvVars: Object.keys(process.env).filter(k => k.includes('VOICE') || k.includes('TWILIO'))
+    hasAudioUrl: !!audioUrl,
+    audioUrl: audioUrl || 'NOT SET',
+    audioUrlLength: audioUrl ? audioUrl.length : 0,
+    allEnvVars: Object.keys(process.env).filter(k => k.includes('VOICE') || k.includes('TWILIO')),
+    generatedTwiML: twiml.substring(0, 500) // First 500 chars of TwiML
   });
 });
 
