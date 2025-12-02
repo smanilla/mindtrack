@@ -217,16 +217,35 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     : `${baseUrl}/api/ai-assessment/voice-message?patientName=${encodeURIComponent(patientName)}`;
 
   try {
+    console.log('=== CREATING TWILIO CALL ===');
+    console.log('To:', formattedPhone);
+    console.log('From:', process.env.TWILIO_PHONE_NUMBER);
+    console.log('TwiML URL:', twimlUrl);
+    
     // Create a voice call with TwiML
     const call = await twilioClient.calls.create({
       to: formattedPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
       url: twimlUrl,
-      method: 'GET'
+      method: 'GET',
+      statusCallback: `${baseUrl}/api/ai-assessment/call-status`, // Track call status
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed', 'failed'],
+      statusCallbackMethod: 'POST'
     });
-    return { sent: true, callSid: call.sid };
+    
+    console.log('Call created successfully');
+    console.log('Call SID:', call.sid);
+    console.log('Call Status:', call.status);
+    
+    return { sent: true, callSid: call.sid, status: call.status };
   } catch (e) {
-    console.error('Twilio call error:', e);
+    console.error('Twilio call creation error:', e);
+    console.error('Error details:', {
+      message: e.message,
+      code: e.code,
+      status: e.status,
+      moreInfo: e.moreInfo
+    });
     return { sent: false, reason: 'call_failed', error: String(e) };
   }
 }
@@ -236,11 +255,21 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
 router.get('/voice-message', (req, res) => {
   const patientName = req.query.patientName || 'a patient';
   
+  // Debug logging - check if endpoint is being called by Twilio
+  console.log('=== VOICE MESSAGE ENDPOINT CALLED ===');
+  console.log('Request method:', req.method);
+  console.log('Request URL:', req.url);
+  console.log('Request headers:', {
+    'user-agent': req.headers['user-agent'],
+    'x-twilio-signature': req.headers['x-twilio-signature'] ? 'Present' : 'Missing',
+    'host': req.headers.host
+  });
+  console.log('Query params:', req.query);
+  
   // Check if custom audio URL is configured
   let audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
   
   // Debug logging
-  console.log('Voice message endpoint called');
   console.log('RED_ALERT_VOICE_AUDIO_URL exists:', !!audioUrl);
   if (audioUrl) {
     console.log('RED_ALERT_VOICE_AUDIO_URL value:', audioUrl.substring(0, 50) + '...');
@@ -302,8 +331,15 @@ router.get('/voice-message', (req, res) => {
   
   console.log('Generated TwiML (first 300 chars):', twiml.substring(0, 300));
   console.log('Full TwiML:', twiml);
+  
+  // Set proper headers for TwiML
   res.type('text/xml');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'text/xml; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  
+  console.log('Sending TwiML response');
   res.send(twiml);
 });
 
