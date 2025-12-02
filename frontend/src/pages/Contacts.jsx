@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 export default function Contacts() {
   const navigate = useNavigate();
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newContact, setNewContact] = useState({ name: '', email: '', phone: '', relationship: '' });
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -18,34 +18,48 @@ export default function Contacts() {
     loadContacts();
   }, [navigate]);
 
-  function loadContacts() {
-    // For now, using mock data. In a real app, this would fetch from API
-    const mockContacts = [
-      { id: 1, name: 'Dr. Sarah Johnson', email: 'sarah.johnson@clinic.com', phone: '+1-555-0123', relationship: 'Doctor' },
-      { id: 2, name: 'Mom', email: 'mom@family.com', phone: '+1-555-0124', relationship: 'Family' },
-      { id: 3, name: 'Best Friend', email: 'friend@email.com', phone: '+1-555-0125', relationship: 'Friend' },
-    ];
-    
-    setContacts(mockContacts);
-    setLoading(false);
-  }
-
-  function handleAddContact(e) {
-    e.preventDefault();
-    if (!newContact.name || !newContact.email) return;
-
-    const contact = {
-      id: Date.now(),
-      ...newContact
-    };
-
-    setContacts([...contacts, contact]);
-    setNewContact({ name: '', email: '', phone: '', relationship: '' });
-    setShowAddForm(false);
-  }
-
-  function handleDeleteContact(id) {
-    setContacts(contacts.filter(contact => contact.id !== id));
+  async function loadContacts() {
+    setLoading(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      
+      // Fetch user's emergency contacts from their profile
+      const res = await axios.get(
+        (import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/auth/me',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Get emergency contacts
+      const emergencyContacts = (res.data.emergencyContacts || []).map(contact => ({
+        ...contact,
+        relationship: contact.relationship || 'Emergency Contact'
+      }));
+      
+      // Also get doctor info if assigned
+      const doctorInfo = res.data.doctor ? {
+        _id: res.data.doctor._id || res.data.doctor,
+        name: res.data.doctor.name || 'Doctor',
+        phone: res.data.doctor.phone,
+        email: res.data.doctor.email,
+        relationship: 'Doctor'
+      } : null;
+      
+      // Combine doctor and emergency contacts
+      const allContacts = [];
+      if (doctorInfo && (doctorInfo.phone || doctorInfo.email)) {
+        allContacts.push(doctorInfo);
+      }
+      allContacts.push(...emergencyContacts);
+      
+      setContacts(allContacts);
+    } catch (e) {
+      setError(e.response?.data?.message || 'Failed to load emergency contacts');
+      console.error('Load contacts error:', e);
+    } finally {
+      setLoading(false);
+    }
   }
 
   if (loading) {
@@ -61,99 +75,57 @@ export default function Contacts() {
   return (
     <div className="page-container">
       <div className="contacts-header">
-        <h2>My Contacts</h2>
-        <button 
-          className="add-contact-btn"
-          onClick={() => setShowAddForm(!showAddForm)}
-        >
-          {showAddForm ? 'Cancel' : '+ Add Contact'}
-        </button>
+        <div>
+          <h2>Emergency Contacts</h2>
+          <p style={{ color: '#666', marginTop: '8px', fontSize: '14px' }}>
+            These contacts will be automatically notified via voice call during red alerts. 
+            Contact your doctor to manage these contacts.
+          </p>
+        </div>
       </div>
 
-      {showAddForm && (
-        <div className="card">
-          <h3>Add New Contact</h3>
-          <form onSubmit={handleAddContact} className="contact-form">
-            <input
-              type="text"
-              placeholder="Name"
-              value={newContact.name}
-              onChange={(e) => setNewContact({...newContact, name: e.target.value})}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={newContact.email}
-              onChange={(e) => setNewContact({...newContact, email: e.target.value})}
-              required
-            />
-            <input
-              type="tel"
-              placeholder="Phone (optional)"
-              value={newContact.phone}
-              onChange={(e) => setNewContact({...newContact, phone: e.target.value})}
-            />
-            <select
-              value={newContact.relationship}
-              onChange={(e) => setNewContact({...newContact, relationship: e.target.value})}
-            >
-              <option value="">Select Relationship</option>
-              <option value="Doctor">Doctor</option>
-              <option value="Family">Family</option>
-              <option value="Friend">Friend</option>
-              <option value="Caregiver">Caregiver</option>
-              <option value="Other">Other</option>
-            </select>
-            <div className="form-actions">
-              <button type="submit">Add Contact</button>
-              <button type="button" onClick={() => setShowAddForm(false)}>Cancel</button>
-            </div>
-          </form>
+      {error && (
+        <div className="card" style={{ background: '#fee2e2', border: '1px solid #ef4444', marginBottom: '20px' }}>
+          <p style={{ color: '#991b1b', margin: 0 }}>{error}</p>
         </div>
       )}
 
       <div className="contacts-grid">
         {contacts.length === 0 ? (
           <div className="card">
-            <p>No contacts yet. Add your first contact!</p>
+            <p>No emergency contacts configured yet. Your doctor can add emergency contacts for you.</p>
           </div>
         ) : (
-          contacts.map(contact => (
-            <div key={contact.id} className="card contact-card">
+          contacts.map((contact, index) => (
+            <div key={contact._id || contact.id || index} className="card contact-card">
               <div className="contact-header">
                 <div className="contact-avatar">
                   <span className="avatar-icon">👤</span>
                 </div>
                 <div className="contact-info">
                   <h3>{contact.name}</h3>
-                  <span className="relationship-badge">{contact.relationship}</span>
+                  <span className="relationship-badge">{contact.relationship || 'Emergency Contact'}</span>
                 </div>
-                <button 
-                  className="delete-btn"
-                  onClick={() => handleDeleteContact(contact.id)}
-                >
-                  🗑️
-                </button>
               </div>
               
               <div className="contact-details">
-                <div className="contact-item">
-                  <span className="contact-label">📧</span>
-                  <span>{contact.email}</span>
-                </div>
+                {contact.email && (
+                  <div className="contact-item">
+                    <span className="contact-label">📧</span>
+                    <span>{contact.email}</span>
+                  </div>
+                )}
                 {contact.phone && (
                   <div className="contact-item">
                     <span className="contact-label">📞</span>
                     <span>{contact.phone}</span>
                   </div>
                 )}
-              </div>
-              
-              <div className="contact-actions">
-                <button className="action-btn">📧 Email</button>
-                {contact.phone && <button className="action-btn">📞 Call</button>}
-                <button className="action-btn">💬 Message</button>
+                {!contact.email && !contact.phone && (
+                  <div className="contact-item">
+                    <span style={{ color: '#666', fontStyle: 'italic' }}>No contact information available</span>
+                  </div>
+                )}
               </div>
             </div>
           ))

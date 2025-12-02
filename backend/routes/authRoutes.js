@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
@@ -62,6 +63,25 @@ router.post('/login', async (req, res) => {
       message: 'Server error',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined
     });
+  }
+});
+
+// GET /api/auth/me - Get current user info including emergency contacts
+router.get('/me', protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('-password')
+      .populate('doctor', 'name email phone')
+      .lean();
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (err) {
+    console.error('Get user error:', err);
+    res.status(500).json({ message: 'Failed to fetch user information' });
   }
 });
 

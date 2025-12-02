@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import EmergencyContactsManager from '../components/EmergencyContactsManager';
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function DoctorDashboard() {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState('');
   const [isLoadingPatients, setIsLoadingPatients] = useState(false);
+  const [showEmergencyContacts, setShowEmergencyContacts] = useState(false);
 
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user') || 'null');
@@ -216,17 +218,43 @@ export default function DoctorDashboard() {
                     <h2 style={{marginTop: 0, color: '#000'}}>{patientDetails.patient.name}</h2>
                     <p style={{color: '#333', margin: 0}}>{patientDetails.patient.email}</p>
                   </div>
-                  <button
-                    className="close-btn"
-                    onClick={() => {
-                      setSelectedPatient(null);
-                      setPatientDetails(null);
-                    }}
-                  >
-                    ✕ Close
-                  </button>
+                  <div style={{display: 'flex', gap: '8px', alignItems: 'center'}}>
+                    <button
+                      onClick={() => setShowEmergencyContacts(true)}
+                      style={{
+                        background: '#fff',
+                        color: '#000',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: 6,
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      📞 Manage Emergency Contacts
+                    </button>
+                    <button
+                      className="close-btn"
+                      onClick={() => {
+                        setSelectedPatient(null);
+                        setPatientDetails(null);
+                        setShowEmergencyContacts(false);
+                      }}
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
                 </div>
               </div>
+
+              {showEmergencyContacts && (
+                <div style={{ marginBottom: '20px' }}>
+                  <EmergencyContactsManager
+                    patientId={selectedPatient}
+                    onClose={() => setShowEmergencyContacts(false)}
+                  />
+                </div>
+              )}
 
               {/* Summary Card */}
               <div className="card" style={{background: '#75B1BE', color: '#000', marginBottom: '20px'}}>

@@ -43,3 +43,5 @@ The script will create:
 - AI summaries will appear in the doctor dashboard for each patient
 
 
+
+

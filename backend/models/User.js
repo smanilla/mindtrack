@@ -8,6 +8,12 @@ const userSchema = new mongoose.Schema(
     password: { type: String, required: true },
     role: { type: String, enum: ['patient', 'doctor', 'caregiver'], default: 'patient' },
     doctor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null }, // Assigned doctor for patients
+    phone: { type: String, default: null }, // User's phone number
+    emergencyContacts: [{
+      name: { type: String, required: true },
+      phone: { type: String, required: true },
+      relationship: { type: String, default: '' } // e.g., "spouse", "parent", "friend"
+    }]
   },
   { timestamps: true }
 );

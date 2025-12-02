@@ -118,8 +118,8 @@ router.get('/patients/:patientId', protect, authorize('doctor'), async (req, res
   try {
     const { patientId } = req.params;
     
-    // Get patient info
-    const patient = await User.findById(patientId).select('name email createdAt role doctor');
+    // Get patient info including emergency contacts
+    const patient = await User.findById(patientId).select('name email createdAt role doctor emergencyContacts phone');
     if (!patient || patient.role !== 'patient') {
       return res.status(404).json({ message: 'Patient not found' });
     }
@@ -232,6 +232,160 @@ router.get('/patients/:patientId/journals', protect, authorize('doctor'), async 
   } catch (error) {
     console.error('Get patient journals error:', error);
     res.status(500).json({ message: 'Failed to fetch patient journals' });
+  }
+});
+
+// Get patient emergency contacts
+router.get('/patients/:patientId/emergency-contacts', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    
+    const patient = await User.findById(patientId).select('emergencyContacts doctor role');
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Verify patient is assigned to this doctor
+    if (patient.doctor?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: This patient is not assigned to you' });
+    }
+    
+    res.json({ emergencyContacts: patient.emergencyContacts || [] });
+  } catch (error) {
+    console.error('Get emergency contacts error:', error);
+    res.status(500).json({ message: 'Failed to fetch emergency contacts' });
+  }
+});
+
+// Add emergency contact for a patient
+router.post('/patients/:patientId/emergency-contacts', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { patientId } = req.params;
+    const { name, phone, relationship } = req.body;
+    
+    if (!name || !phone) {
+      return res.status(400).json({ message: 'Name and phone are required' });
+    }
+    
+    const patient = await User.findById(patientId).select('emergencyContacts doctor role');
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Verify patient is assigned to this doctor
+    if (patient.doctor?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: This patient is not assigned to you' });
+    }
+    
+    // Initialize emergencyContacts array if it doesn't exist
+    if (!patient.emergencyContacts) {
+      patient.emergencyContacts = [];
+    }
+    
+    // Add new contact
+    patient.emergencyContacts.push({
+      name,
+      phone,
+      relationship: relationship || ''
+    });
+    
+    await patient.save();
+    
+    res.status(201).json({
+      message: 'Emergency contact added successfully',
+      emergencyContacts: patient.emergencyContacts
+    });
+  } catch (error) {
+    console.error('Add emergency contact error:', error);
+    res.status(500).json({ message: 'Failed to add emergency contact' });
+  }
+});
+
+// Update emergency contact for a patient
+router.put('/patients/:patientId/emergency-contacts/:contactId', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { patientId, contactId } = req.params;
+    const { name, phone, relationship } = req.body;
+    
+    if (!name || !phone) {
+      return res.status(400).json({ message: 'Name and phone are required' });
+    }
+    
+    const patient = await User.findById(patientId).select('emergencyContacts doctor role');
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Verify patient is assigned to this doctor
+    if (patient.doctor?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: This patient is not assigned to you' });
+    }
+    
+    if (!patient.emergencyContacts || patient.emergencyContacts.length === 0) {
+      return res.status(404).json({ message: 'Emergency contact not found' });
+    }
+    
+    // Find and update the contact
+    const contactIndex = patient.emergencyContacts.findIndex(
+      c => c._id.toString() === contactId
+    );
+    
+    if (contactIndex === -1) {
+      return res.status(404).json({ message: 'Emergency contact not found' });
+    }
+    
+    patient.emergencyContacts[contactIndex] = {
+      ...patient.emergencyContacts[contactIndex].toObject(),
+      name,
+      phone,
+      relationship: relationship || ''
+    };
+    
+    await patient.save();
+    
+    res.json({
+      message: 'Emergency contact updated successfully',
+      emergencyContacts: patient.emergencyContacts
+    });
+  } catch (error) {
+    console.error('Update emergency contact error:', error);
+    res.status(500).json({ message: 'Failed to update emergency contact' });
+  }
+});
+
+// Delete emergency contact for a patient
+router.delete('/patients/:patientId/emergency-contacts/:contactId', protect, authorize('doctor'), async (req, res) => {
+  try {
+    const { patientId, contactId } = req.params;
+    
+    const patient = await User.findById(patientId).select('emergencyContacts doctor role');
+    if (!patient || patient.role !== 'patient') {
+      return res.status(404).json({ message: 'Patient not found' });
+    }
+    
+    // Verify patient is assigned to this doctor
+    if (patient.doctor?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Access denied: This patient is not assigned to you' });
+    }
+    
+    if (!patient.emergencyContacts || patient.emergencyContacts.length === 0) {
+      return res.status(404).json({ message: 'Emergency contact not found' });
+    }
+    
+    // Remove the contact
+    patient.emergencyContacts = patient.emergencyContacts.filter(
+      c => c._id.toString() !== contactId
+    );
+    
+    await patient.save();
+    
+    res.json({
+      message: 'Emergency contact deleted successfully',
+      emergencyContacts: patient.emergencyContacts
+    });
+  } catch (error) {
+    console.error('Delete emergency contact error:', error);
+    res.status(500).json({ message: 'Failed to delete emergency contact' });
   }
 });
 

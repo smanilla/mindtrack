@@ -12,6 +12,7 @@ export default function AIAssessment() {
   const [summary, setSummary] = useState('');
   const [crisis, setCrisis] = useState(false);
   const [contacts, setContacts] = useState(''); // comma separated emails
+  const [notifications, setNotifications] = useState(null); // notification status
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -61,6 +62,7 @@ export default function AIAssessment() {
       });
       setSummary(res.data.summary || '');
       setCrisis(Boolean(res.data.crisis));
+      setNotifications(res.data.notifications || null);
     } catch (e) {
       setError(e.response?.data?.message || 'Failed to submit assessment');
     } finally {
@@ -111,7 +113,7 @@ export default function AIAssessment() {
               onChange={(e) => setContacts(e.target.value)}
               style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: 6 }}
             />
-            <small style={{ display: 'block', color: '#555', marginTop: 6 }}>On red alert, we will email your doctor automatically and these emails if provided.</small>
+            <small style={{ display: 'block', color: '#555', marginTop: 6 }}>On red alert, we will automatically notify your doctor and emergency contacts via email and voice call (if configured).</small>
           </div>
 
           <button type="submit" disabled={submitting} style={{
@@ -130,8 +132,44 @@ export default function AIAssessment() {
           </div>
           <p style={{ whiteSpace: 'pre-wrap' }}>{summary}</p>
           {crisis && (
-            <div style={{ marginTop: 8, color: '#991b1b' }}>
-              We detected language indicating possible self-harm or criminal risk. Your doctor and provided contacts have been notified if email is configured. If you are in immediate danger, please contact your local emergency number now.
+            <div style={{ marginTop: 16, padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
+              <div style={{ color: '#991b1b', fontWeight: 600, marginBottom: 8 }}>
+                🚨 Crisis Alert - Immediate Support Needed
+              </div>
+              <div style={{ color: '#991b1b', marginBottom: 8 }}>
+                We detected language indicating possible self-harm or crisis. Your doctor and emergency contacts are being notified.
+              </div>
+              {notifications && (
+                <div style={{ marginTop: 12, fontSize: '0.9em' }}>
+                  <div style={{ marginBottom: 4 }}>
+                    <strong>Email notifications:</strong> {notifications.emails?.sent ? '✅ Sent' : `❌ ${notifications.emails?.reason || 'Not sent'}`}
+                  </div>
+                  <div style={{ marginBottom: 4 }}>
+                    <strong>Voice calls:</strong> {notifications.voiceCalls?.sent ? '✅ Sent' : `❌ ${notifications.voiceCalls?.reason || 'Not sent'}`}
+                  </div>
+                  {notifications.voiceCalls?.calls && notifications.voiceCalls.calls.length > 0 && (
+                    <div style={{ marginTop: 8, fontSize: '0.85em', color: '#7f1d1d' }}>
+                      <strong>Called contacts:</strong>
+                      <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                        {notifications.voiceCalls.calls.map((call, idx) => (
+                          <li key={idx}>
+                            {call.name} ({call.type === 'doctor' ? 'Doctor' : 'Emergency Contact'}) - {call.sent ? '✅ Called' : `❌ Failed: ${call.reason}`}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div style={{ marginTop: 12, padding: '8px', background: '#fff', borderRadius: 4, border: '1px solid #fca5a5' }}>
+                <strong>If you are in immediate danger, please:</strong>
+                <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+                  <li>Call 911 or your local emergency number</li>
+                  <li>Call 988 (Suicide & Crisis Lifeline)</li>
+                  <li>Text HOME to 741741 (Crisis Text Line)</li>
+                  <li>Go to your nearest emergency room</li>
+                </ul>
+              </div>
             </div>
           )}
         </div>
