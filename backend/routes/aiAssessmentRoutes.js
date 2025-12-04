@@ -14,9 +14,10 @@ try {
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   if (process.env.GOOGLE_API_KEY) {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    geminiClient = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use gemini-pro (most stable and widely available model)
+    geminiClient = genAI.getGenerativeModel({ model: 'gemini-pro' });
     useGemini = true;
-    console.log('✅ Gemini AI initialized successfully for Assessment summaries');
+    console.log('✅ Gemini AI initialized successfully for Assessment summaries (using gemini-pro)');
   } else {
     console.log('⚠️ GOOGLE_API_KEY not found in environment, Assessment will use hardcoded summaries');
   }
@@ -89,27 +90,18 @@ async function summarizeAnswers(answers) {
   let descriptiveSummary = '';
   let adviceSummary = '';
 
-  if (useGemini && geminiClient) {
-    try {
-      console.log('🤖 Using Gemini AI to generate summaries...');
-      
-      // Generate descriptive summary (document-style)
-      const descriptivePrompt = `You are a mental health documentation assistant.
+  // Prepare prompts outside try-catch so they're available in error handler
+  const allAnswers = answers.join(' ').toLowerCase();
+  const hasCrisis = detectCrisisStrict(allAnswers);
+  
+  const descriptivePrompt = `You are a mental health documentation assistant.
 Create a clear, factual summary of the patient's responses to the assessment questions below.
 This should be a document-style summary that describes what the patient reported, organized by topic.
 Do NOT give advice, recommendations, or opinions. Just describe what the patient said.
 Keep it concise (150-200 words) and objective.
 \n\n${content}`;
 
-      const descriptiveResult = await geminiClient.generateContent(descriptivePrompt);
-      descriptiveSummary = descriptiveResult.response?.text?.() || descriptiveResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      console.log('✅ Descriptive summary generated with Gemini AI');
-
-      // Generate advice summary (with red alert if needed)
-      const allAnswers = answers.join(' ').toLowerCase();
-      const hasCrisis = detectCrisisStrict(allAnswers);
-      
-      const advicePrompt = `You are a supportive, ethical mental-health assistant.
+  const advicePrompt = `You are a supportive, ethical mental-health assistant.
 Based on the patient's responses below, provide:
 1. A compassionate assessment of their current state
 2. 2-3 identified strengths or supports
@@ -119,14 +111,60 @@ Use warm, empathetic language. Include a brief disclaimer that you are an AI ass
 Keep it around 150-200 words.
 \n\n${content}`;
 
+  if (useGemini && geminiClient) {
+    try {
+      console.log('🤖 Using Gemini AI to generate summaries...');
+      
+      // Generate descriptive summary (document-style)
+      const descriptiveResult = await geminiClient.generateContent(descriptivePrompt);
+      descriptiveSummary = descriptiveResult.response?.text?.() || descriptiveResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      if (!descriptiveSummary || descriptiveSummary.trim().length === 0) {
+        throw new Error('Empty response from Gemini for descriptive summary');
+      }
+      console.log('✅ Descriptive summary generated with Gemini AI');
+
+      // Generate advice summary (with red alert if needed)
       const adviceResult = await geminiClient.generateContent(advicePrompt);
       adviceSummary = adviceResult.response?.text?.() || adviceResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      
+      if (!adviceSummary || adviceSummary.trim().length === 0) {
+        throw new Error('Empty response from Gemini for advice summary');
+      }
       console.log('✅ Advice summary generated with Gemini AI');
 
       // Return both summaries
       return { descriptiveSummary, adviceSummary };
     } catch (error) {
       console.error('❌ Gemini API error:', error.message);
+      console.error('❌ Full error:', error);
+      
+      // If it's a model name error, try alternative models
+      if (error.message && (error.message.includes('not found') || error.message.includes('404') || error.message.includes('models/'))) {
+        console.log('🔄 Trying alternative Gemini model: gemini-1.5-pro');
+        try {
+          const { GoogleGenerativeAI } = require('@google/generative-ai');
+          const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+          const altClient = genAI.getGenerativeModel({ model: 'gemini-1.5-pro' });
+          
+          // Retry with alternative model
+          const descriptiveResult = await altClient.generateContent(descriptivePrompt);
+          descriptiveSummary = descriptiveResult.response?.text?.() || descriptiveResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          const adviceResult = await altClient.generateContent(advicePrompt);
+          adviceSummary = adviceResult.response?.text?.() || adviceResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+          
+          if (descriptiveSummary && adviceSummary) {
+            console.log('✅ Summaries generated successfully with gemini-1.5-pro');
+            // Update the global client for future use
+            geminiClient = altClient;
+            return { descriptiveSummary, adviceSummary };
+          }
+        } catch (altError) {
+          console.error('❌ Alternative model also failed:', altError.message);
+        }
+      }
+      
       console.log('⚠️ Falling back to hardcoded summaries');
       // fall through to local summarizer
     }

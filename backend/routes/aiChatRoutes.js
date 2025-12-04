@@ -9,9 +9,10 @@ try {
   const { GoogleGenerativeAI } = require('@google/generative-ai');
   if (process.env.GOOGLE_API_KEY) {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
-    geminiClient = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    // Use gemini-pro (most stable and widely available model)
+    geminiClient = genAI.getGenerativeModel({ model: 'gemini-pro' });
     useGemini = true;
-    console.log('✅ Gemini AI initialized successfully');
+    console.log('✅ Gemini AI initialized successfully for Chat (using gemini-pro)');
   } else {
     console.log('⚠️ GOOGLE_API_KEY not found, AI Chat will use fallback responses');
   }
