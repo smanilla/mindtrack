@@ -318,14 +318,11 @@ router.get('/voice-message', (req, res) => {
     // 2. Play with digits attribute (for DTMF, not needed but sometimes helps)
     // 3. Wrap in Gather (sometimes more reliable)
     
-    // First, try the simplest approach with explicit attributes
-    // Add Pause to ensure call is established before playing
-    // Remove loop attribute - default is 1, but sometimes explicit causes issues
+    // Simplified TwiML - removed Pause tags as they can sometimes cause issues
+    // Twilio will automatically wait for call to be established before playing
     twiml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-  <Pause length="2"/>
   <Play>${safeUrl}</Play>
-  <Pause length="1"/>
   <Hangup/>
 </Response>`;
     
