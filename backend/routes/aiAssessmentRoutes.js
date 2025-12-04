@@ -224,6 +224,11 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     console.log('To:', formattedPhone);
     console.log('From:', process.env.TWILIO_PHONE_NUMBER);
     console.log('TwiML URL:', twimlUrl);
+    console.log('TWIML_BIN_URL set:', !!process.env.TWIML_BIN_URL);
+    console.log('RED_ALERT_VOICE_AUDIO_URL set:', !!process.env.RED_ALERT_VOICE_AUDIO_URL);
+    if (process.env.RED_ALERT_VOICE_AUDIO_URL) {
+      console.log('Audio URL (first 100 chars):', process.env.RED_ALERT_VOICE_AUDIO_URL.substring(0, 100));
+    }
     
     // Create a voice call with TwiML
     // CRITICAL: Twilio fetches TwiML when call is answered
@@ -243,6 +248,7 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     console.log('Call created successfully');
     console.log('Call SID:', call.sid);
     console.log('Call Status:', call.status);
+    console.log('IMPORTANT: Check Twilio Console → Monitor → Logs → Calls → [Call SID] for TwiML execution details');
     
     return { sent: true, callSid: call.sid, status: call.status };
   } catch (e) {
