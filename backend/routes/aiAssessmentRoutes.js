@@ -259,19 +259,26 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
 
 // TwiML endpoint for voice message
 // Supports both pre-recorded audio and text-to-speech
+// CRITICAL: This endpoint MUST be publicly accessible (no auth) for Twilio to call it
 router.get('/voice-message', (req, res) => {
   const patientName = req.query.patientName || 'a patient';
   
-  // Debug logging - check if endpoint is being called by Twilio
+  // EXTENSIVE Debug logging - check if endpoint is being called by Twilio
   console.log('=== VOICE MESSAGE ENDPOINT CALLED ===');
+  console.log('Timestamp:', new Date().toISOString());
   console.log('Request method:', req.method);
   console.log('Request URL:', req.url);
+  console.log('Request path:', req.path);
+  console.log('Full URL:', req.protocol + '://' + req.get('host') + req.originalUrl);
   console.log('Request headers:', {
     'user-agent': req.headers['user-agent'],
     'x-twilio-signature': req.headers['x-twilio-signature'] ? 'Present' : 'Missing',
-    'host': req.headers.host
+    'host': req.headers.host,
+    'x-forwarded-for': req.headers['x-forwarded-for'],
+    'x-forwarded-proto': req.headers['x-forwarded-proto']
   });
   console.log('Query params:', req.query);
+  console.log('IP Address:', req.ip || req.connection.remoteAddress);
   
   // Check if custom audio URL is configured
   let audioUrl = process.env.RED_ALERT_VOICE_AUDIO_URL;
@@ -336,8 +343,8 @@ router.get('/voice-message', (req, res) => {
 </Response>`;
   }
   
-  console.log('Generated TwiML (first 300 chars):', twiml.substring(0, 300));
-  console.log('Full TwiML:', twiml);
+  console.log('Final TwiML length:', twiml.length);
+  console.log('Final TwiML:', twiml);
   
   // Set proper headers for TwiML
   res.type('text/xml');
@@ -346,8 +353,14 @@ router.get('/voice-message', (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   
-  console.log('Sending TwiML response');
+  console.log('Sending TwiML response (status 200)');
+  console.log('Response headers set:', {
+    'Content-Type': res.get('Content-Type'),
+    'Cache-Control': res.get('Cache-Control')
+  });
+  
   res.send(twiml);
+  console.log('TwiML response sent successfully');
 });
 
 // Debug endpoint to check environment variables and test TwiML
