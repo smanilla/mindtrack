@@ -2,13 +2,22 @@ const express = require('express');
 const router = express.Router();
 const { protect } = require('../middleware/authMiddleware');
 
-// Initialize OpenAI only if API key is available
-let openai = null;
-if (process.env.OPENAI_API_KEY) {
-  const OpenAI = require('openai');
-  openai = new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-  });
+// Initialize Gemini AI (using Google API Key)
+let geminiClient = null;
+let useGemini = false;
+try {
+  const { GoogleGenerativeAI } = require('@google/generative-ai');
+  if (process.env.GOOGLE_API_KEY) {
+    const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
+    geminiClient = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    useGemini = true;
+    console.log('✅ Gemini AI initialized successfully');
+  } else {
+    console.log('⚠️ GOOGLE_API_KEY not found, AI Chat will use fallback responses');
+  }
+} catch (error) {
+  console.error('❌ Failed to initialize Gemini AI:', error.message);
+  useGemini = false;
 }
 
 // Store conversation history (in production, use Redis or database)
@@ -20,7 +29,7 @@ function getConversation(userId) {
     conversations.set(userId, [
       {
         role: 'system',
-        content: `You are a compassionate mental health support AI assistant providing general emotional support through ChatGPT.
+        content: `You are a compassionate mental health support AI assistant providing general emotional support through Gemini AI.
 
 ⚠️ CRITICAL ETHICAL RESTRICTIONS (YOU MUST FOLLOW THESE):
 
@@ -64,7 +73,7 @@ POSITIVE DISTRACTIONS:
 - Use these as healthy coping mechanisms when appropriate
 
 REMEMBER:
-- You are ChatGPT (GPT-3.5-turbo), an AI assistant
+- You are Gemini AI, an AI assistant powered by Google's Generative AI
 - Support, guide, validate, and refer - NEVER diagnose or treat
 - Safety and user well-being are the top priority
 - Always provide crisis resources when needed
@@ -193,19 +202,39 @@ router.post('/chat', protect, async (req, res) => {
     let aiResponse;
     let requiresNotification = false;
 
-    // PRIORITY: Try ChatGPT first if available
-    if (openai) {
+    // PRIORITY: Try Gemini AI first if available
+    if (useGemini && geminiClient) {
       try {
-        // Call OpenAI API with enhanced safety system prompt
-        const completion = await openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
-          messages: conversation,
-          max_tokens: 250, // Allow slightly more for detailed responses
-          temperature: 0.7,
-          presence_penalty: 0.6, // Encourage varied responses
-        });
+        // Get system message (first message in conversation)
+        const systemMessage = conversation.find(msg => msg.role === 'system');
+        const systemPrompt = systemMessage ? systemMessage.content : '';
+        
+        // Get conversation history (excluding system message)
+        const chatHistory = conversation
+          .filter(msg => msg.role !== 'system')
+          .slice(-10) // Keep last 10 messages for context
+          .map(msg => ({
+            role: msg.role === 'user' ? 'user' : 'model',
+            parts: [{ text: msg.content }]
+          }));
 
-        aiResponse = completion.choices[0].message.content;
+        // Build prompt with system instructions
+        let fullPrompt = systemPrompt;
+        if (chatHistory.length > 0) {
+          fullPrompt += '\n\nConversation History:\n';
+          chatHistory.forEach(msg => {
+            fullPrompt += `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.parts[0].text}\n\n`;
+          });
+        }
+        fullPrompt += 'Assistant: ';
+
+        // Call Gemini API
+        const result = await geminiClient.generateContent(fullPrompt);
+        aiResponse = result.response?.text?.() || result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
+        
+        if (!aiResponse) {
+          throw new Error('Empty response from Gemini');
+        }
         
         // Safety check: Verify response doesn't contain harmful content
         const harmfulPatterns = [
@@ -227,15 +256,15 @@ router.post('/chat', protect, async (req, res) => {
             aiResponse += '\n\n*I am an AI assistant providing general emotional support, not a licensed therapist or medical professional.*';
           }
         }
-      } catch (openaiError) {
-        console.log('OpenAI error, falling back to smart AI:', openaiError.message);
-        // Fall back to smart AI responses when ChatGPT fails
+      } catch (geminiError) {
+        console.log('Gemini AI error, falling back to smart AI:', geminiError.message);
+        // Fall back to smart AI responses when Gemini fails
         const smartResponse = generateSmartAIResponse(userMessage, conversation);
         aiResponse = smartResponse.response;
         requiresNotification = smartResponse.requiresNotification || false;
       }
     } else {
-      // OpenAI not configured - use smart AI responses as fallback
+      // Gemini not configured - use smart AI responses as fallback
       const smartResponse = generateSmartAIResponse(userMessage, conversation);
       aiResponse = smartResponse.response;
       requiresNotification = smartResponse.requiresNotification || false;

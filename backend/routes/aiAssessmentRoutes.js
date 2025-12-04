@@ -16,8 +16,13 @@ try {
     const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY);
     geminiClient = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
     useGemini = true;
+    console.log('✅ Gemini AI initialized successfully for Assessment summaries');
+  } else {
+    console.log('⚠️ GOOGLE_API_KEY not found in environment, Assessment will use hardcoded summaries');
   }
 } catch (e) {
+  console.error('❌ Failed to initialize Gemini AI for Assessment:', e.message);
+  console.log('⚠️ Assessment will use hardcoded fallback summaries');
   useGemini = false;
 }
 
@@ -80,24 +85,65 @@ async function summarizeAnswers(answers) {
     .map((a, i) => `Q${i + 1}: ${QUESTIONS[i]}\nA${i + 1}: ${a}`)
     .join('\n\n');
 
-  const prompt = `You are a supportive, ethical mental-health assistant.
-Summarize the user's day based on the Q&A below in ~150 words.
-Use compassionate, non-judgmental language, include 2-3 strengths or supports, and 2 concrete next steps.
-Do not claim to be a therapist. Include a brief disclaimer that you are an AI.
-\n\n${content}`;
+  // Generate two separate summaries
+  let descriptiveSummary = '';
+  let adviceSummary = '';
 
   if (useGemini && geminiClient) {
     try {
-      const result = await geminiClient.generateContent(prompt);
-      const text = result.response?.text?.() || result.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-      if (text) return text;
-    } catch (_) {
+      console.log('🤖 Using Gemini AI to generate summaries...');
+      
+      // Generate descriptive summary (document-style)
+      const descriptivePrompt = `You are a mental health documentation assistant.
+Create a clear, factual summary of the patient's responses to the assessment questions below.
+This should be a document-style summary that describes what the patient reported, organized by topic.
+Do NOT give advice, recommendations, or opinions. Just describe what the patient said.
+Keep it concise (150-200 words) and objective.
+\n\n${content}`;
+
+      const descriptiveResult = await geminiClient.generateContent(descriptivePrompt);
+      descriptiveSummary = descriptiveResult.response?.text?.() || descriptiveResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('✅ Descriptive summary generated with Gemini AI');
+
+      // Generate advice summary (with red alert if needed)
+      const allAnswers = answers.join(' ').toLowerCase();
+      const hasCrisis = detectCrisisStrict(allAnswers);
+      
+      const advicePrompt = `You are a supportive, ethical mental-health assistant.
+Based on the patient's responses below, provide:
+1. A compassionate assessment of their current state
+2. 2-3 identified strengths or supports
+3. 2-3 concrete next steps or recommendations
+${hasCrisis ? '4. CRITICAL: Include immediate crisis support resources (988 Suicide & Crisis Lifeline, Crisis Text Line 741741, 911)' : ''}
+Use warm, empathetic language. Include a brief disclaimer that you are an AI assistant, not a licensed therapist.
+Keep it around 150-200 words.
+\n\n${content}`;
+
+      const adviceResult = await geminiClient.generateContent(advicePrompt);
+      adviceSummary = adviceResult.response?.text?.() || adviceResult.response?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('✅ Advice summary generated with Gemini AI');
+
+      // Return both summaries
+      return { descriptiveSummary, adviceSummary };
+    } catch (error) {
+      console.error('❌ Gemini API error:', error.message);
+      console.log('⚠️ Falling back to hardcoded summaries');
       // fall through to local summarizer
     }
+  } else {
+    console.log('⚠️ Using hardcoded fallback summaries (Gemini not available)');
   }
-  // Fallback summarizer - generate varied summaries based on content with improved sentiment detection
+  // Fallback summarizer - generate two summaries based on content
   const allAnswers = answers.join(' ').toLowerCase();
   
+  // Generate descriptive summary (document-style)
+  descriptiveSummary = 'Assessment Summary:\n\n';
+  answers.forEach((answer, index) => {
+    descriptiveSummary += `${QUESTIONS[index]}\n${answer}\n\n`;
+  });
+  descriptiveSummary += 'This assessment was completed on ' + new Date().toLocaleDateString() + '.';
+  
+  // Generate advice summary
   // Improved negative sentiment detection
   const negativePatterns = /bad|terrible|awful|horrible|worst|depressed|sad|down|low|hopeless|worthless|empty|numb|disappointed|frustrated|angry|upset|hurt|disrespected|not good|not too good|pretty bad|feeling bad|struggling|difficult|hard|challenging|overwhelmed|exhausted|drained|tired|fatigued|no energy|low energy|poor|worse|declining|worrying|concerned|anxious|stress|stressed|panic|fear|scared|afraid|lonely|isolated|alone|rejected|abandoned|betrayed|hurt|pain|suffering|distress|misery|sorrow|grief|despair|desperate|helpless|powerless|stuck|trapped|ending|suicide|self-harm|kill|die|death|worthless|burden|better off without|no point|no reason|give up|quit|nothing helps|nothing works|no hope|no future/i;
   
@@ -109,71 +155,86 @@ Do not claim to be a therapist. Include a brief disclaimer that you are an AI.
   
   const hasNegative = negativePatterns.test(allAnswers);
   const hasPositive = positivePatterns.test(allAnswers);
-  const hasCrisis = crisisIndicators.test(allAnswers);
+  const hasCrisis = crisisIndicators.test(allAnswers) || detectCrisisStrict(allAnswers);
   const hasStress = /stress|anxious|worried|difficult|challenging|hard|overwhelmed/.test(allAnswers);
   const hasSleep = /sleep|tired|rest|energy|fatigue/.test(allAnswers);
   const hasSocial = /friend|family|people|social|talk|support|interaction|colleague/.test(allAnswers);
   const hasCoping = /coping|strategy|technique|exercise|meditation|breathing|practice|help|support|therapy/.test(allAnswers);
   
-  let summary = 'Based on your responses today: ';
+  adviceSummary = 'Based on your responses today: ';
   
   // Priority: Crisis situations
-  if (hasCrisis || detectCrisisStrict(allAnswers)) {
-    summary += 'You are experiencing significant distress and have expressed thoughts that concern me. ';
-    summary += 'It is important to know that you are not alone and help is available. ';
-    summary += 'Your willingness to share these feelings shows courage. ';
-    summary += 'Immediate support: (1) Please reach out to a crisis hotline (988 Suicide & Crisis Lifeline, or text HOME to 741741), (2) Contact your healthcare provider or therapist immediately, (3) If you are in immediate danger, please call 911 or go to your nearest emergency room. ';
-    summary += 'Your life has value, and there are people who want to help you through this difficult time. ';
+  if (hasCrisis) {
+    adviceSummary += 'You are experiencing significant distress and have expressed thoughts that concern me. ';
+    adviceSummary += 'It is important to know that you are not alone and help is available. ';
+    adviceSummary += 'Your willingness to share these feelings shows courage. ';
+    adviceSummary += '\n\n🚨 IMMEDIATE SUPPORT:\n';
+    adviceSummary += '(1) 988 Suicide & Crisis Lifeline: Call or text 988\n';
+    adviceSummary += '(2) Crisis Text Line: Text HOME to 741741\n';
+    adviceSummary += '(3) Contact your healthcare provider or therapist immediately\n';
+    adviceSummary += '(4) If you are in immediate danger, please call 911 or go to your nearest emergency room\n\n';
+    adviceSummary += 'Your life has value, and there are people who want to help you through this difficult time. ';
   } 
   // Strong negative sentiment without explicit crisis
   else if (hasNegative && !hasPositive) {
-    summary += 'You experienced significant challenges and distress today. ';
-    summary += 'Your honesty in sharing these difficult feelings is important and shows self-awareness. ';
-    summary += 'It is understandable to feel overwhelmed when facing multiple stressors. ';
-    summary += 'Strengths: your ability to recognize and express difficult emotions, reaching out for support through this assessment. ';
-    summary += 'Next steps: (1) Consider reaching out to your support network (family, friends, or a mental health professional), (2) Practice self-compassion and remember that difficult days do not define you, (3) If these feelings persist, please consult with a mental health professional who can provide appropriate support. ';
+    adviceSummary += 'You experienced significant challenges and distress today. ';
+    adviceSummary += 'Your honesty in sharing these difficult feelings is important and shows self-awareness. ';
+    adviceSummary += 'It is understandable to feel overwhelmed when facing multiple stressors. ';
+    adviceSummary += '\n\nStrengths: your ability to recognize and express difficult emotions, reaching out for support through this assessment.\n\n';
+    adviceSummary += 'Next steps:\n';
+    adviceSummary += '(1) Consider reaching out to your support network (family, friends, or a mental health professional)\n';
+    adviceSummary += '(2) Practice self-compassion and remember that difficult days do not define you\n';
+    adviceSummary += '(3) If these feelings persist, please consult with a mental health professional who can provide appropriate support. ';
   }
   // Mixed day
   else if (hasNegative && hasPositive) {
-    summary += 'You experienced a mixed day with both challenges and some positive moments. ';
-    summary += 'Navigating difficult emotions while also recognizing positive aspects shows emotional awareness and resilience. ';
-    summary += 'Strengths: balanced perspective, emotional awareness, ability to identify both challenges and positives. ';
-    summary += 'Next steps: (1) Continue to acknowledge and process difficult feelings while also holding space for positive moments, (2) Consider using coping strategies that have helped in the past, (3) Maintain connections with your support network. ';
+    adviceSummary += 'You experienced a mixed day with both challenges and some positive moments. ';
+    adviceSummary += 'Navigating difficult emotions while also recognizing positive aspects shows emotional awareness and resilience. ';
+    adviceSummary += '\n\nStrengths: balanced perspective, emotional awareness, ability to identify both challenges and positives.\n\n';
+    adviceSummary += 'Next steps:\n';
+    adviceSummary += '(1) Continue to acknowledge and process difficult feelings while also holding space for positive moments\n';
+    adviceSummary += '(2) Consider using coping strategies that have helped in the past\n';
+    adviceSummary += '(3) Maintain connections with your support network. ';
   }
   // Positive day
   else if (hasPositive && !hasNegative) {
-    summary += 'You experienced a generally positive day with good emotional awareness. ';
-    summary += 'Your ability to recognize positive moments and maintain balance shows strong self-awareness. ';
-    summary += 'Strengths: positive outlook, emotional regulation, self-care practices. ';
-    summary += 'Next steps: (1) Continue maintaining your current self-care routine, (2) Consider documenting what contributed to your positive mood today. ';
+    adviceSummary += 'You experienced a generally positive day with good emotional awareness. ';
+    adviceSummary += 'Your ability to recognize positive moments and maintain balance shows strong self-awareness. ';
+    adviceSummary += '\n\nStrengths: positive outlook, emotional regulation, self-care practices.\n\n';
+    adviceSummary += 'Next steps:\n';
+    adviceSummary += '(1) Continue maintaining your current self-care routine\n';
+    adviceSummary += '(2) Consider documenting what contributed to your positive mood today. ';
   }
   // Neutral or unclear
   else {
-    summary += 'Thank you for completing this assessment. ';
-    summary += 'Your responses help provide insight into your current state. ';
-    summary += 'Strengths: willingness to engage in self-reflection and assessment. ';
-    summary += 'Next steps: (1) Continue monitoring your mood and well-being, (2) Consider reaching out to support systems if needed, (3) Maintain regular self-care practices. ';
+    adviceSummary += 'Thank you for completing this assessment. ';
+    adviceSummary += 'Your responses help provide insight into your current state. ';
+    adviceSummary += '\n\nStrengths: willingness to engage in self-reflection and assessment.\n\n';
+    adviceSummary += 'Next steps:\n';
+    adviceSummary += '(1) Continue monitoring your mood and well-being\n';
+    adviceSummary += '(2) Consider reaching out to support systems if needed\n';
+    adviceSummary += '(3) Maintain regular self-care practices. ';
   }
   
   if (hasSleep && hasNegative) {
-    summary += 'Sleep difficulties can significantly impact mood and well-being. Consider discussing sleep patterns with a healthcare provider. ';
+    adviceSummary += '\n\nNote: Sleep difficulties can significantly impact mood and well-being. Consider discussing sleep patterns with a healthcare provider. ';
   } else if (hasSleep) {
-    summary += 'Your attention to sleep patterns is important for overall well-being. ';
+    adviceSummary += '\n\nNote: Your attention to sleep patterns is important for overall well-being. ';
   }
   
   if (hasSocial && !hasNegative) {
-    summary += 'Your social connections appear to be a valuable source of support. ';
+    adviceSummary += '\n\nNote: Your social connections appear to be a valuable source of support. ';
   } else if (hasSocial && hasNegative) {
-    summary += 'Social connections can be an important source of support during difficult times. ';
+    adviceSummary += '\n\nNote: Social connections can be an important source of support during difficult times. ';
   }
   
   if (hasCoping && hasNegative) {
-    summary += 'Remember that coping strategies may take time to show effects. Be patient with yourself and consider trying different approaches if current strategies are not helping. ';
+    adviceSummary += '\n\nNote: Remember that coping strategies may take time to show effects. Be patient with yourself and consider trying different approaches if current strategies are not helping. ';
   }
   
-  summary += 'I am an AI providing general emotional support, not a licensed therapist. If you need professional help, please consult with a mental health professional.';
+  adviceSummary += '\n\n*I am an AI providing general emotional support, not a licensed therapist. If you need professional help, please consult with a mental health professional.*';
   
-  return summary;
+  return { descriptiveSummary, adviceSummary };
 }
 
 async function sendRedAlertVoiceCall(phoneNumber, patientName) {
@@ -576,13 +637,20 @@ router.post('/submit', protect, async (req, res) => {
 
     const joined = answers.join('\n\n');
     const crisis = detectCrisisStrict(joined);
-    const summary = await summarizeAnswers(answers);
+    const summaries = await summarizeAnswers(answers);
+    
+    // Extract summaries (handle both old format and new format)
+    const descriptiveSummary = summaries.descriptiveSummary || summaries.summary || '';
+    const adviceSummary = summaries.adviceSummary || summaries.summary || '';
+    const legacySummary = summaries.summary || (descriptiveSummary + '\n\n' + adviceSummary);
 
     // Persist assessment
     const doc = await Assessment.create({
       user: req.user._id,
       answers,
-      summary,
+      summary: legacySummary, // Keep for backward compatibility
+      descriptiveSummary,
+      adviceSummary,
       crisis
     });
 
@@ -592,13 +660,21 @@ router.post('/submit', protect, async (req, res) => {
       const fullUser = await User.findById(req.user._id).select('emergencyContacts doctor phone');
       notifications = await sendRedAlertNotifications({ 
         requester: { ...req.user.toObject(), emergencyContacts: fullUser?.emergencyContacts, doctor: fullUser?.doctor }, 
-        summary, 
+        summary: adviceSummary, // Use advice summary for notifications
         answers, 
         extraContacts: contacts || [] 
       });
     }
 
-    res.json({ id: doc._id, summary, crisis, notifications, createdAt: doc.createdAt });
+    res.json({ 
+      id: doc._id, 
+      summary: legacySummary, // Backward compatibility
+      descriptiveSummary,
+      adviceSummary,
+      crisis, 
+      notifications, 
+      createdAt: doc.createdAt 
+    });
   } catch (e) {
     console.error('Assessment submit error:', e);
     res.status(500).json({ message: 'Failed to process assessment' });

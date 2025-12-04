@@ -173,7 +173,7 @@ export default function AIAssistant() {
                 <li>Building healthy habits</li>
                 <li>General mental health guidance</li>
               </ul>
-              <p>💚 <strong>Powered by ChatGPT</strong> with specialized psychological support and safety restrictions. I provide AI-generated responses tailored to mental health support.</p>
+              <p>💚 <strong>Powered by Gemini AI</strong> with specialized psychological support and safety restrictions. I provide AI-generated responses tailored to mental health support.</p>
               <div style={{background: '#fff3cd', padding: '12px', borderRadius: '8px', marginTop: '16px', border: '1px solid #ffc107'}}>
                 <p style={{margin: 0, fontSize: '13px', color: '#856404'}}>
                   <strong>⚠️ Important:</strong> I am an AI assistant providing general emotional support, not a licensed therapist, medical professional, or replacement for professional care. For severe concerns, crises, or persistent issues, please consult qualified mental health professionals or emergency services.

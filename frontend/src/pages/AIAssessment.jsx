@@ -10,6 +10,8 @@ export default function AIAssessment() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [summary, setSummary] = useState('');
+  const [descriptiveSummary, setDescriptiveSummary] = useState('');
+  const [adviceSummary, setAdviceSummary] = useState('');
   const [crisis, setCrisis] = useState(false);
   const [contacts, setContacts] = useState(''); // comma separated emails
   const [notifications, setNotifications] = useState(null); // notification status
@@ -60,7 +62,9 @@ export default function AIAssessment() {
       const res = await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:5000') + '/api/ai-assessment/submit', payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setSummary(res.data.summary || '');
+      setSummary(res.data.summary || ''); // Legacy support
+      setDescriptiveSummary(res.data.descriptiveSummary || '');
+      setAdviceSummary(res.data.adviceSummary || '');
       setCrisis(Boolean(res.data.crisis));
       setNotifications(res.data.notifications || null);
     } catch (e) {
@@ -82,7 +86,7 @@ export default function AIAssessment() {
     <div className="page-container">
       <div className="card" style={{ background: '#f8fafc' }}>
         <h2 style={{ marginTop: 0 }}>🩺 Daily Assessment</h2>
-        <p style={{ marginTop: 0 }}>Answer the questions below. We’ll generate a ~150-word summary using AI.</p>
+        <p style={{ marginTop: 0 }}>Answer the questions below. We'll generate two summaries using Gemini AI: a descriptive summary of your responses and an advice summary with recommendations.</p>
 
         {error && <div className="error" style={{ marginBottom: 16 }}>{error}</div>}
 
@@ -124,13 +128,25 @@ export default function AIAssessment() {
         </form>
       </div>
 
-      {summary && (
-        <div className="card" style={{ background: crisis ? '#fee2e2' : '#ecfeff', border: crisis ? '1px solid #ef4444' : '1px solid #67e8f9' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h3 style={{ marginTop: 0 }}>{crisis ? '🚨 Red Alert Summary' : '✅ Your Summary'}</h3>
-            <button onClick={() => navigate('/patient/dashboard')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
-          </div>
-          <p style={{ whiteSpace: 'pre-wrap' }}>{summary}</p>
+      {(summary || descriptiveSummary || adviceSummary) && (
+        <>
+          {descriptiveSummary && (
+            <div className="card" style={{ background: '#f8fafc', border: '1px solid #cbd5e1', marginBottom: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ marginTop: 0 }}>📄 Descriptive Summary</h3>
+                <button onClick={() => navigate('/patient/dashboard')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
+              </div>
+              <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{descriptiveSummary}</p>
+            </div>
+          )}
+          
+          {adviceSummary && (
+            <div className="card" style={{ background: crisis ? '#fee2e2' : '#ecfeff', border: crisis ? '1px solid #ef4444' : '1px solid #67e8f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ marginTop: 0 }}>{crisis ? '🚨 Red Alert - Advice & Support' : '💡 Advice & Recommendations'}</h3>
+                <button onClick={() => navigate('/patient/dashboard')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
+              </div>
+              <p style={{ whiteSpace: 'pre-wrap', lineHeight: '1.6' }}>{adviceSummary}</p>
           {crisis && (
             <div style={{ marginTop: 16, padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
               <div style={{ color: '#991b1b', fontWeight: 600, marginBottom: 8 }}>
@@ -172,7 +188,61 @@ export default function AIAssessment() {
               </div>
             </div>
           )}
-        </div>
+            </div>
+          )}
+          
+          {/* Legacy support: show old summary format if new summaries not available */}
+          {!descriptiveSummary && !adviceSummary && summary && (
+            <div className="card" style={{ background: crisis ? '#fee2e2' : '#ecfeff', border: crisis ? '1px solid #ef4444' : '1px solid #67e8f9' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h3 style={{ marginTop: 0 }}>{crisis ? '🚨 Red Alert Summary' : '✅ Your Summary'}</h3>
+                <button onClick={() => navigate('/patient/dashboard')} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}>✕</button>
+              </div>
+              <p style={{ whiteSpace: 'pre-wrap' }}>{summary}</p>
+              {crisis && (
+                <div style={{ marginTop: 16, padding: '12px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 6 }}>
+                  <div style={{ color: '#991b1b', fontWeight: 600, marginBottom: 8 }}>
+                    🚨 Crisis Alert - Immediate Support Needed
+                  </div>
+                  <div style={{ color: '#991b1b', marginBottom: 8 }}>
+                    We detected language indicating possible self-harm or crisis. Your doctor and emergency contacts are being notified.
+                  </div>
+                  {notifications && (
+                    <div style={{ marginTop: 12, fontSize: '0.9em' }}>
+                      <div style={{ marginBottom: 4 }}>
+                        <strong>Email notifications:</strong> {notifications.emails?.sent ? '✅ Sent' : `❌ ${notifications.emails?.reason || 'Not sent'}`}
+                      </div>
+                      <div style={{ marginBottom: 4 }}>
+                        <strong>Voice calls:</strong> {notifications.voiceCalls?.sent ? '✅ Sent' : `❌ ${notifications.voiceCalls?.reason || 'Not sent'}`}
+                      </div>
+                      {notifications.voiceCalls?.calls && notifications.voiceCalls.calls.length > 0 && (
+                        <div style={{ marginTop: 8, fontSize: '0.85em', color: '#7f1d1d' }}>
+                          <strong>Called contacts:</strong>
+                          <ul style={{ margin: '4px 0', paddingLeft: '20px' }}>
+                            {notifications.voiceCalls.calls.map((call, idx) => (
+                              <li key={idx}>
+                                {call.name} ({call.type === 'doctor' ? 'Doctor' : 'Emergency Contact'}) - {call.sent ? '✅ Called' : `❌ Failed: ${call.reason}`}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <div style={{ marginTop: 12, padding: '8px', background: '#fff', borderRadius: 4, border: '1px solid #fca5a5' }}>
+                    <strong>If you are in immediate danger, please:</strong>
+                    <ul style={{ margin: '8px 0 0 20px', padding: 0 }}>
+                      <li>Call 911 or your local emergency number</li>
+                      <li>Call 988 (Suicide & Crisis Lifeline)</li>
+                      <li>Text HOME to 741741 (Crisis Text Line)</li>
+                      <li>Go to your nearest emergency room</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
