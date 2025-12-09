@@ -1,7 +1,35 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import EmergencyContactsManager from '../components/EmergencyContactsManager';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Pie } from 'react-chartjs-2';
+
+// Register Chart.js components
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 export default function DoctorDashboard() {
   const navigate = useNavigate();
@@ -101,6 +129,41 @@ export default function DoctorDashboard() {
       'very_bad': '😢'
     };
     return moodIcons[mood] || '😐';
+  }
+
+  // Helper function to prepare mood trend chart data
+  function prepareMoodTrendData(entries) {
+    const moodValues = { 'very_bad': 1, 'bad': 2, 'neutral': 3, 'good': 4, 'very_good': 5 };
+    const sortedEntries = [...entries]
+      .sort((a, b) => new Date(a.date) - new Date(b.date))
+      .slice(-30); // Last 30 entries
+    
+    const labels = sortedEntries.map(entry => 
+      new Date(entry.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    );
+    const moodData = sortedEntries.map(entry => moodValues[entry.mood] || 3);
+    const sleepData = sortedEntries.map(entry => entry.sleepHours);
+
+    return { labels, moodData, sleepData };
+  }
+
+  // Helper function to prepare mood distribution data
+  function prepareMoodDistributionData(entries) {
+    const moodCounts = {
+      'very_good': 0,
+      'good': 0,
+      'neutral': 0,
+      'bad': 0,
+      'very_bad': 0
+    };
+    
+    entries.forEach(entry => {
+      if (moodCounts.hasOwnProperty(entry.mood)) {
+        moodCounts[entry.mood]++;
+      }
+    });
+
+    return moodCounts;
   }
 
   if (loading) {
@@ -279,52 +342,236 @@ export default function DoctorDashboard() {
                 </div>
               </div>
 
-              {/* Entries Section */}
+              {/* Entries Section with Charts */}
               <div className="card" style={{background: '#f8fafc', marginBottom: '20px'}}>
-                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center', marginBottom: '12px'}}>
-                  <h3 style={{marginTop: 0}}>Recent Entries</h3>
-                  {patientDetails.entries.length > 5 && (
+                <div style={{display:'flex',justifyContent:'space-between',alignItems:'center', marginBottom: '20px'}}>
+                  <h3 style={{marginTop: 0}}>Mood Analytics</h3>
+                  {patientDetails.entries.length > 0 && (
                     <button 
                       onClick={() => navigate(`/doctor/patient/${selectedPatient}/entries`)}
                       style={{
                         background: '#75B1BE',
                         color: '#000',
                         border: 'none',
-                        padding: '6px 12px',
+                        padding: '8px 16px',
                         borderRadius: '6px',
                         cursor: 'pointer',
-                        fontSize: '13px',
-                        fontWeight: '500'
+                        fontSize: '14px',
+                        fontWeight: '500',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                       }}
                     >
-                      See All ({patientDetails.entries.length})
+                      View All ({patientDetails.entries.length})
                     </button>
                   )}
                 </div>
                 {patientDetails.entries.length === 0 ? (
-                  <p style={{color: '#666', fontStyle: 'italic'}}>No entries yet</p>
+                  <p style={{color: '#666', fontStyle: 'italic', textAlign: 'center', padding: '40px'}}>No entries yet</p>
                 ) : (
-                  <div className="entries-list">
-                  {patientDetails.entries.slice(0, 5).map(entry => (
-                      <div key={entry._id} className="entry-item">
-                        <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                          <span style={{fontSize: '24px'}}>{getMoodIcon(entry.mood)}</span>
-                          <div style={{flex: 1}}>
-                            <div style={{fontWeight: '600', color: '#333'}}>
-                              {formatDate(entry.date)}
-                            </div>
-                            <div style={{fontSize: '14px', color: '#666'}}>
-                              Mood: {entry.mood.replace('_', ' ')} • Sleep: {entry.sleepHours}h
-                            </div>
-                            {entry.text && (
-                              <div style={{fontSize: '13px', color: '#555', marginTop: '4px', fontStyle: 'italic'}}>
-                                {entry.text.length > 50 ? entry.text.substring(0, 50) + '...' : entry.text}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
+                  <div style={{
+                    display: 'grid', 
+                    gridTemplateColumns: window.innerWidth < 768 ? '1fr' : '1fr 1fr', 
+                    gap: '20px', 
+                    marginBottom: '20px'
+                  }}>
+                    {/* Mood Trend Line Chart */}
+                    <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'}}>
+                      <h4 style={{marginTop: 0, marginBottom: '16px', color: '#333', fontSize: '16px', fontWeight: '600'}}>
+                        Mood Trend (Last 30 Days)
+                      </h4>
+                      {(() => {
+                        const { labels, moodData, sleepData } = prepareMoodTrendData(patientDetails.entries);
+                        return (
+                          <Line
+                            data={{
+                              labels: labels,
+                              datasets: [
+                                {
+                                  label: 'Mood',
+                                  data: moodData,
+                                  borderColor: '#75B1BE',
+                                  backgroundColor: 'rgba(117, 177, 190, 0.1)',
+                                  borderWidth: 3,
+                                  fill: true,
+                                  tension: 0.4,
+                                  pointRadius: 4,
+                                  pointHoverRadius: 6,
+                                  pointBackgroundColor: '#75B1BE',
+                                  pointBorderColor: '#fff',
+                                  pointBorderWidth: 2
+                                },
+                                {
+                                  label: 'Sleep Hours',
+                                  data: sleepData,
+                                  borderColor: '#10b981',
+                                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                  borderWidth: 2,
+                                  fill: false,
+                                  tension: 0.4,
+                                  pointRadius: 3,
+                                  yAxisID: 'y1'
+                                }
+                              ]
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: true,
+                              plugins: {
+                                legend: {
+                                  display: true,
+                                  position: 'top',
+                                  labels: {
+                                    usePointStyle: true,
+                                    padding: 15,
+                                    font: {
+                                      size: 12,
+                                      weight: '500'
+                                    }
+                                  }
+                                },
+                                tooltip: {
+                                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                  padding: 12,
+                                  titleFont: { size: 14, weight: 'bold' },
+                                  bodyFont: { size: 12 },
+                                  borderColor: '#75B1BE',
+                                  borderWidth: 1,
+                                  callbacks: {
+                                    label: function(context) {
+                                      if (context.datasetIndex === 0) {
+                                        const moodMap = { 1: 'Very Bad', 2: 'Bad', 3: 'Neutral', 4: 'Good', 5: 'Very Good' };
+                                        return `Mood: ${moodMap[context.parsed.y] || 'Unknown'}`;
+                                      } else {
+                                        return `Sleep: ${context.parsed.y} hours`;
+                                      }
+                                    }
+                                  }
+                                }
+                              },
+                              scales: {
+                                y: {
+                                  beginAtZero: false,
+                                  min: 0.5,
+                                  max: 5.5,
+                                  ticks: {
+                                    stepSize: 1,
+                                    callback: function(value) {
+                                      const moodMap = { 1: 'Very Bad', 2: 'Bad', 3: 'Neutral', 4: 'Good', 5: 'Very Good' };
+                                      return moodMap[value] || '';
+                                    },
+                                    font: { size: 11 }
+                                  },
+                                  grid: {
+                                    color: 'rgba(0, 0, 0, 0.05)'
+                                  }
+                                },
+                                y1: {
+                                  type: 'linear',
+                                  display: true,
+                                  position: 'right',
+                                  min: 0,
+                                  max: 12,
+                                  ticks: {
+                                    callback: function(value) {
+                                      return value + 'h';
+                                    },
+                                    font: { size: 11 }
+                                  },
+                                  grid: {
+                                    drawOnChartArea: false
+                                  }
+                                },
+                                x: {
+                                  grid: {
+                                    display: false
+                                  },
+                                  ticks: {
+                                    maxRotation: 45,
+                                    minRotation: 45,
+                                    font: { size: 10 }
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
+
+                    {/* Mood Distribution Pie Chart */}
+                    <div style={{background: 'white', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)'}}>
+                      <h4 style={{marginTop: 0, marginBottom: '16px', color: '#333', fontSize: '16px', fontWeight: '600'}}>
+                        Mood Distribution
+                      </h4>
+                      {(() => {
+                        const moodCounts = prepareMoodDistributionData(patientDetails.entries);
+                        const colors = {
+                          'very_good': '#10b981',
+                          'good': '#75B1BE',
+                          'neutral': '#fbbf24',
+                          'bad': '#f97316',
+                          'very_bad': '#ef4444'
+                        };
+
+                        return (
+                          <Pie
+                            data={{
+                              labels: ['Very Good', 'Good', 'Neutral', 'Bad', 'Very Bad'],
+                              datasets: [{
+                                data: [
+                                  moodCounts.very_good,
+                                  moodCounts.good,
+                                  moodCounts.neutral,
+                                  moodCounts.bad,
+                                  moodCounts.very_bad
+                                ],
+                                backgroundColor: [
+                                  colors.very_good,
+                                  colors.good,
+                                  colors.neutral,
+                                  colors.bad,
+                                  colors.very_bad
+                                ],
+                                borderColor: '#fff',
+                                borderWidth: 3,
+                                hoverBorderWidth: 4
+                              }]
+                            }}
+                            options={{
+                              responsive: true,
+                              maintainAspectRatio: true,
+                              plugins: {
+                                legend: {
+                                  display: true,
+                                  position: 'bottom',
+                                  labels: {
+                                    usePointStyle: true,
+                                    padding: 15,
+                                    font: {
+                                      size: 12,
+                                      weight: '500'
+                                    }
+                                  }
+                                },
+                                tooltip: {
+                                  backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                                  padding: 12,
+                                  titleFont: { size: 14, weight: 'bold' },
+                                  bodyFont: { size: 12 },
+                                  callbacks: {
+                                    label: function(context) {
+                                      const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                      const percentage = total > 0 ? ((context.parsed / total) * 100).toFixed(1) : 0;
+                                      return `${context.label}: ${context.parsed} (${percentage}%)`;
+                                    }
+                                  }
+                                }
+                              }
+                            }}
+                          />
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>
