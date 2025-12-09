@@ -92,7 +92,9 @@ async function summarizeAnswers(answers) {
 
   // Prepare prompts outside try-catch so they're available in error handler
   const allAnswers = answers.join(' ').toLowerCase();
-  const hasCrisis = detectCrisisStrict(allAnswers);
+  // Define crisis indicators regex early so it can be used in hasCrisis calculation
+  const crisisIndicatorsRegex = /end(ing|s)?\s+(my|me|myself)|kill(ing|s)?\s+(my|me|myself)|suicide|self.?harm|hurt(ing|s)?\s+(my|me|myself)|die|death|overdose|take my life|no reason to live|better off without|ending me|feeling like ending/i;
+  const hasCrisis = crisisIndicatorsRegex.test(allAnswers) || detectCrisisStrict(allAnswers);
   
   const descriptivePrompt = `You are a mental health documentation assistant.
 Create a clear, factual summary of the patient's responses to the assessment questions below.
@@ -188,12 +190,9 @@ Keep it around 150-200 words.
   // Positive sentiment detection
   const positivePatterns = /good|great|excellent|wonderful|amazing|fantastic|happy|joy|joyful|pleased|content|satisfied|grateful|thankful|blessed|positive|optimistic|hopeful|better|improved|improving|progress|success|achievement|accomplish|proud|confident|strong|resilient|calm|peaceful|relaxed|energetic|motivated|inspired|excited|enthusiastic|love|appreciate|care|support|connection|friendship|family|helpful|effective|working|beneficial/i;
   
-  // Check for crisis indicators
-  const crisisIndicators = /end(ing|s)?\s+(my|me|myself)|kill(ing|s)?\s+(my|me|myself)|suicide|self.?harm|hurt(ing|s)?\s+(my|me|myself)|die|death|overdose|take my life|no reason to live|better off without|ending me|feeling like ending/i;
-  
   const hasNegative = negativePatterns.test(allAnswers);
   const hasPositive = positivePatterns.test(allAnswers);
-  const hasCrisis = crisisIndicators.test(allAnswers) || detectCrisisStrict(allAnswers);
+  // Note: hasCrisis is already declared above (line 97), so we reuse it here
   const hasStress = /stress|anxious|worried|difficult|challenging|hard|overwhelmed/.test(allAnswers);
   const hasSleep = /sleep|tired|rest|energy|fatigue/.test(allAnswers);
   const hasSocial = /friend|family|people|social|talk|support|interaction|colleague/.test(allAnswers);
