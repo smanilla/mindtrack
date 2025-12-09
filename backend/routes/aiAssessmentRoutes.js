@@ -172,7 +172,7 @@ Keep it around 150-200 words.
     console.log('⚠️ Using hardcoded fallback summaries (Gemini not available)');
   }
   // Fallback summarizer - generate two summaries based on content
-  const allAnswers = answers.join(' ').toLowerCase();
+  // Note: allAnswers is already declared above (line 94), so we reuse it here
   
   // Generate descriptive summary (document-style)
   descriptiveSummary = 'Assessment Summary:\n\n';
