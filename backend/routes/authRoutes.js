@@ -8,6 +8,9 @@ const router = express.Router();
 function signToken(id) {
   // Trim any whitespace that might have been added
   const secret = (process.env.JWT_SECRET || '').trim();
+  if (!secret || secret.length < 10) {
+    throw new Error('JWT_SECRET is not properly configured. Please set it in your environment variables.');
+  }
   return jwt.sign({ id }, secret, { expiresIn: '7d' });
 }
 
@@ -48,15 +51,27 @@ router.post('/register', async (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+    
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+    
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    
     const match = await user.comparePassword(password);
     if (!match) return res.status(400).json({ message: 'Invalid credentials' });
     
-    // Log secret being used for signing
+    // Check JWT_SECRET before signing
     const secret = (process.env.JWT_SECRET || '').trim();
-    console.log('Login - JWT_SECRET length:', secret.length);
-    console.log('Login - JWT_SECRET (first 15 chars):', secret.substring(0, 15));
+    if (!secret || secret.length < 10) {
+      console.error('JWT_SECRET is missing or too short');
+      return res.status(500).json({ 
+        message: 'Server configuration error. Please contact support.',
+        error: process.env.NODE_ENV === 'development' ? 'JWT_SECRET not configured' : undefined
+      });
+    }
     
     const token = signToken(user._id);
     res.json({ token, user: { id: user._id, name: user.name, email: user.email, role: user.role } });

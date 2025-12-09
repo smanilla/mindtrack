@@ -10,7 +10,24 @@ The script will create:
 
 ### Steps:
 
-1. **Make sure your backend is set up:**
+1. **Create the doctor account first (if it doesn't exist):**
+   - Go to the registration page: `/register` (or use Postman/API)
+   - Register with:
+     - **Email:** `sfatemon@gmail.com`
+     - **Password:** `password123` (or your preferred password)
+     - **Role:** `doctor`
+   - **OR use the API directly:**
+     ```bash
+     POST http://localhost:5000/api/auth/register
+     {
+       "name": "Dr. Sfatemon",
+       "email": "sfatemon@gmail.com",
+       "password": "password123",
+       "role": "doctor"
+     }
+     ```
+
+2. **Make sure your backend is set up:**
    - MongoDB connection is working
    - Doctor account exists: `sfatemon@gmail.com`
 
@@ -27,9 +44,13 @@ The script will create:
    - Generate 30 days of data for each patient
    - Create entries, journals, and AI assessments
 
-4. **Patient credentials:**
-   - Email: `patient1@example.com` through `patient10@example.com`
-   - Password: `password123` (for all)
+4. **Login credentials:**
+   - **Doctor:**
+     - Email: `sfatemon@gmail.com`
+     - Password: `password123` (or the password you set during registration)
+   - **Patients:**
+     - Email: `patient1@example.com` through `patient10@example.com`
+     - Password: `password123` (for all)
 
 ### Notes:
 - The script will delete existing data for these patients before generating new data
@@ -41,6 +62,8 @@ The script will create:
 - Log in as doctor to see all patients
 - Log in as any patient to see their 30 days of data
 - AI summaries will appear in the doctor dashboard for each patient
+
+
 
 
 

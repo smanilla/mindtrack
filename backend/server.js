@@ -5,10 +5,52 @@ const connectDB = require('./config/db');
 
 dotenv.config();
 
+// Check critical environment variables
+if (!process.env.JWT_SECRET || process.env.JWT_SECRET.trim().length < 10) {
+  console.error('ERROR: JWT_SECRET is missing or too short (minimum 10 characters)');
+  console.error('Please set JWT_SECRET in your environment variables');
+}
+
+if (!process.env.MONGO_URI) {
+  console.error('ERROR: MONGO_URI is missing');
+  console.error('Please set MONGO_URI in your environment variables');
+}
+
 const app = express();
 
-// Middleware
-app.use(cors());
+// Middleware - CORS configuration
+const corsOptions = {
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, Postman, or server-to-server)
+    if (!origin) return callback(null, true);
+    
+    // List of allowed origins
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://mindtrack-i2on.vercel.app',
+    ];
+    
+    // Check if origin matches any allowed pattern
+    const isAllowed = allowedOrigins.includes(origin) || 
+                      /^https:\/\/mindtrack-.*\.vercel\.app$/.test(origin);
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      // In development, log the origin for debugging
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('CORS blocked origin:', origin);
+      }
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 
 // CRITICAL: express.json() can interfere with multipart/form-data and form-encoded data
 // Only parse JSON for non-upload routes and non-Twilio routes
