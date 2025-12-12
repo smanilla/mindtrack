@@ -542,6 +542,98 @@ router.get('/voice-message-test-twilio', (req, res) => {
   res.send(twiml);
 });
 
+// Diagnostic endpoint to check Twilio configuration
+router.get('/twilio-config-check', protect, (req, res) => {
+  const config = {
+    enableVoiceCalls: ENABLE_VOICE_CALLS,
+    twilioClientInitialized: !!twilioClient,
+    environmentVariables: {
+      ENABLE_VOICE_CALLS: process.env.ENABLE_VOICE_CALLS || 'NOT SET',
+      TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID ? 'SET (hidden)' : 'NOT SET',
+      TWILIO_AUTH_TOKEN: process.env.TWILIO_AUTH_TOKEN ? 'SET (hidden)' : 'NOT SET',
+      TWILIO_PHONE_NUMBER: process.env.TWILIO_PHONE_NUMBER || 'NOT SET',
+      API_URL: process.env.API_URL || 'NOT SET',
+      VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
+      RED_ALERT_VOICE_AUDIO_URL: process.env.RED_ALERT_VOICE_AUDIO_URL ? 'SET' : 'NOT SET',
+      TWIML_BIN_URL: process.env.TWIML_BIN_URL ? 'SET' : 'NOT SET'
+    },
+    issues: []
+  };
+
+  // Check for issues
+  if (!ENABLE_VOICE_CALLS) {
+    config.issues.push('ENABLE_VOICE_CALLS is not set to "true"');
+  }
+  if (!process.env.TWILIO_ACCOUNT_SID) {
+    config.issues.push('TWILIO_ACCOUNT_SID is not set');
+  }
+  if (!process.env.TWILIO_AUTH_TOKEN) {
+    config.issues.push('TWILIO_AUTH_TOKEN is not set');
+  }
+  if (!process.env.TWILIO_PHONE_NUMBER) {
+    config.issues.push('TWILIO_PHONE_NUMBER is not set');
+  }
+  if (!twilioClient) {
+    config.issues.push('Twilio client is not initialized (check credentials)');
+  }
+  if (!process.env.API_URL && !process.env.VERCEL_URL) {
+    config.issues.push('API_URL is not set (needed for TwiML endpoint)');
+  }
+
+  // Check user's phone numbers
+  User.findById(req.user._id).select('emergencyContacts doctor phone').then(user => {
+    const phoneNumbers = [];
+    if (user?.doctor) {
+      User.findById(user.doctor).select('phone name').then(doctor => {
+        if (doctor?.phone) {
+          phoneNumbers.push({ phone: doctor.phone, name: doctor.name || 'Doctor', type: 'doctor' });
+        }
+        if (user?.emergencyContacts && Array.isArray(user.emergencyContacts)) {
+          user.emergencyContacts.forEach(contact => {
+            if (contact.phone) {
+              phoneNumbers.push({ 
+                phone: contact.phone, 
+                name: contact.name || 'Emergency Contact', 
+                type: 'emergency_contact' 
+              });
+            }
+          });
+        }
+        config.userPhoneNumbers = phoneNumbers;
+        config.phoneNumberCount = phoneNumbers.length;
+        if (phoneNumbers.length === 0) {
+          config.issues.push('No phone numbers found (no doctor phone or emergency contacts)');
+        }
+        res.json(config);
+      }).catch(() => {
+        config.userPhoneNumbers = phoneNumbers;
+        res.json(config);
+      });
+    } else {
+      if (user?.emergencyContacts && Array.isArray(user.emergencyContacts)) {
+        user.emergencyContacts.forEach(contact => {
+          if (contact.phone) {
+            phoneNumbers.push({ 
+              phone: contact.phone, 
+              name: contact.name || 'Emergency Contact', 
+              type: 'emergency_contact' 
+            });
+          }
+        });
+      }
+      config.userPhoneNumbers = phoneNumbers;
+      config.phoneNumberCount = phoneNumbers.length;
+      if (phoneNumbers.length === 0) {
+        config.issues.push('No phone numbers found (no doctor phone or emergency contacts)');
+      }
+      res.json(config);
+    }
+  }).catch(err => {
+    config.error = 'Failed to fetch user data: ' + err.message;
+    res.json(config);
+  });
+});
+
 // Call status callback endpoint (for debugging) - MUST be POST and not protected
 // Twilio sends form-encoded data, not JSON
 // CRITICAL: Must return 200 OK quickly, or Twilio will retry and show warnings
@@ -600,6 +692,15 @@ async function sendRedAlertNotifications({ requester, summary, answers, extraCon
     voiceCalls: { sent: false, calls: [] }
   };
 
+  console.log('=== RED ALERT NOTIFICATIONS START ===');
+  console.log('ENABLE_VOICE_CALLS:', ENABLE_VOICE_CALLS);
+  console.log('twilioClient initialized:', !!twilioClient);
+  console.log('TWILIO_ACCOUNT_SID set:', !!process.env.TWILIO_ACCOUNT_SID);
+  console.log('TWILIO_AUTH_TOKEN set:', !!process.env.TWILIO_AUTH_TOKEN);
+  console.log('TWILIO_PHONE_NUMBER set:', !!process.env.TWILIO_PHONE_NUMBER);
+  console.log('API_URL set:', !!process.env.API_URL);
+  console.log('API_URL value:', process.env.API_URL || 'NOT SET');
+
   // Send emails
   results.emails = await sendRedAlertEmails({ requester, summary, answers, extraContacts });
 
@@ -613,18 +714,26 @@ async function sendRedAlertNotifications({ requester, summary, answers, extraCon
     if (normalizedPhone && !seenPhones.has(normalizedPhone)) {
       seenPhones.add(normalizedPhone);
       phoneNumbers.push({ phone, name, type, relationship });
+      console.log(`Added phone number: ${phone} (${name}, ${type})`);
     }
   };
   
   // Get doctor's phone number
   if (requester?.doctor) {
+    console.log('Checking doctor phone, doctor ID:', requester.doctor);
     const doctor = await User.findById(requester.doctor).select('phone name email');
     if (doctor?.phone) {
+      console.log('Doctor phone found:', doctor.phone);
       addPhoneIfNew(doctor.phone, doctor.name || 'Doctor', 'doctor');
+    } else {
+      console.log('Doctor phone NOT found or empty');
     }
+  } else {
+    console.log('No doctor assigned to user');
   }
 
   // Get emergency contacts from user profile
+  console.log('Emergency contacts:', requester?.emergencyContacts);
   if (requester?.emergencyContacts && Array.isArray(requester.emergencyContacts)) {
     for (const contact of requester.emergencyContacts) {
       if (contact.phone) {
@@ -634,14 +743,23 @@ async function sendRedAlertNotifications({ requester, summary, answers, extraCon
           'emergency_contact',
           contact.relationship || ''
         );
+      } else {
+        console.log('Emergency contact missing phone:', contact.name || 'Unknown');
       }
     }
+  } else {
+    console.log('No emergency contacts found');
   }
+
+  console.log(`Total phone numbers collected: ${phoneNumbers.length}`);
+  console.log('Phone numbers:', phoneNumbers.map(p => ({ phone: p.phone, name: p.name })));
 
   // Make voice calls
   if (phoneNumbers.length > 0 && ENABLE_VOICE_CALLS && twilioClient) {
+    console.log('Attempting to make voice calls...');
     for (const contact of phoneNumbers) {
       const callResult = await sendRedAlertVoiceCall(contact.phone, requester?.name || 'a patient');
+      console.log(`Call result for ${contact.phone}:`, callResult);
       results.voiceCalls.calls.push({
         phone: contact.phone,
         name: contact.name,
@@ -650,11 +768,26 @@ async function sendRedAlertNotifications({ requester, summary, answers, extraCon
       });
     }
     results.voiceCalls.sent = results.voiceCalls.calls.some(c => c.sent);
-  } else if (phoneNumbers.length > 0) {
-    results.voiceCalls.reason = ENABLE_VOICE_CALLS ? 'twilio_not_configured' : 'voice_calls_disabled';
   } else {
-    results.voiceCalls.reason = 'no_phone_numbers';
+    if (phoneNumbers.length === 0) {
+      console.log('❌ No phone numbers found - cannot make calls');
+      results.voiceCalls.reason = 'no_phone_numbers';
+    } else if (!ENABLE_VOICE_CALLS) {
+      console.log('❌ Voice calls disabled (ENABLE_VOICE_CALLS != "true")');
+      results.voiceCalls.reason = 'voice_calls_disabled';
+    } else if (!twilioClient) {
+      console.log('❌ Twilio client not initialized - check TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN');
+      results.voiceCalls.reason = 'twilio_not_configured';
+      results.voiceCalls.details = {
+        hasAccountSid: !!process.env.TWILIO_ACCOUNT_SID,
+        hasAuthToken: !!process.env.TWILIO_AUTH_TOKEN,
+        hasPhoneNumber: !!process.env.TWILIO_PHONE_NUMBER
+      };
+    }
   }
+
+  console.log('=== RED ALERT NOTIFICATIONS END ===');
+  console.log('Final results:', JSON.stringify(results, null, 2));
 
   return results;
 }
