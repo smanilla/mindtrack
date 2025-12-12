@@ -263,7 +263,7 @@ router.get('/patients/:patientId/emergency-contacts', protect, authorize('doctor
 router.post('/patients/:patientId/emergency-contacts', protect, authorize('doctor'), async (req, res) => {
   try {
     const { patientId } = req.params;
-    const { name, phone, relationship } = req.body;
+    const { name, phone, email, relationship } = req.body;
     
     if (!name || !phone) {
       return res.status(400).json({ message: 'Name and phone are required' });
@@ -288,6 +288,7 @@ router.post('/patients/:patientId/emergency-contacts', protect, authorize('docto
     patient.emergencyContacts.push({
       name,
       phone,
+      email: email || '',
       relationship: relationship || ''
     });
     
@@ -307,7 +308,7 @@ router.post('/patients/:patientId/emergency-contacts', protect, authorize('docto
 router.put('/patients/:patientId/emergency-contacts/:contactId', protect, authorize('doctor'), async (req, res) => {
   try {
     const { patientId, contactId } = req.params;
-    const { name, phone, relationship } = req.body;
+    const { name, phone, email, relationship } = req.body;
     
     if (!name || !phone) {
       return res.status(400).json({ message: 'Name and phone are required' });
@@ -340,6 +341,7 @@ router.put('/patients/:patientId/emergency-contacts/:contactId', protect, author
       ...patient.emergencyContacts[contactIndex].toObject(),
       name,
       phone,
+      email: email || '',
       relationship: relationship || ''
     };
     

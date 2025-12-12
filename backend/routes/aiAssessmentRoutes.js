@@ -661,27 +661,96 @@ async function sendRedAlertEmails({ requester, summary, answers, extraContacts =
   if (!transporter) return { sent: false, reason: 'mail_not_configured' };
 
   const recipients = new Set();
+  const emailDetails = []; // Track who we're sending to for logging
+
   // Patient's doctor (if linked)
   if (requester?.doctor) {
     const doctor = await User.findById(requester.doctor).select('email name');
-    if (doctor?.email) recipients.add(doctor.email);
+    if (doctor?.email) {
+      recipients.add(doctor.email);
+      emailDetails.push({ email: doctor.email, name: doctor.name || 'Doctor', type: 'doctor' });
+    }
   }
-  // Optional extra contacts from request
-  for (const e of extraContacts) if (e && /@/.test(e)) recipients.add(e);
 
-  if (recipients.size === 0) return { sent: false, reason: 'no_recipients' };
+  // Emergency contacts with email addresses
+  if (requester?.emergencyContacts && Array.isArray(requester.emergencyContacts)) {
+    for (const contact of requester.emergencyContacts) {
+      if (contact.email && /@/.test(contact.email)) {
+        recipients.add(contact.email);
+        emailDetails.push({ 
+          email: contact.email, 
+          name: contact.name || 'Emergency Contact', 
+          type: 'emergency_contact',
+          relationship: contact.relationship || ''
+        });
+      }
+    }
+  }
+
+  // Optional extra contacts from request
+  for (const e of extraContacts) {
+    if (e && /@/.test(e)) {
+      recipients.add(e);
+      emailDetails.push({ email: e, name: 'Extra Contact', type: 'extra' });
+    }
+  }
+
+  if (recipients.size === 0) {
+    console.log('No email recipients found for red alert');
+    return { sent: false, reason: 'no_recipients' };
+  }
+
+  const patientName = requester?.name || 'a patient';
+  const patientEmail = requester?.email || 'N/A';
+
+  // Create email content
+  const emailSubject = `🚨 MindTrack Red Alert: ${patientName} Needs Immediate Attention`;
+  const emailText = `RED ALERT - IMMEDIATE ATTENTION REQUIRED
+
+A potential crisis has been detected for ${patientName} (${patientEmail}).
+
+This is an automated alert from the MindTrack mental health monitoring system.
+
+PATIENT INFORMATION:
+Name: ${patientName}
+Email: ${patientEmail}
+
+CRISIS SUMMARY:
+${summary || 'A crisis situation has been detected based on patient responses.'}
+
+RECENT ASSESSMENT RESPONSES:
+${answers.map((a, i) => `Q${i + 1}: ${QUESTIONS[i]}\nA${i + 1}: ${a}`).join('\n\n')}
+
+ACTION REQUIRED:
+Please reach out to ${patientName} immediately to provide support and assess their safety.
+
+If this is a life-threatening emergency, please contact emergency services immediately:
+- Emergency Services: 911 (US) or your local emergency number
+- Crisis Text Line: Text HOME to 741741 (US/Canada/UK)
+- 988 Suicide & Crisis Lifeline: Call or text 988 (US)
+
+This alert has been sent to:
+${emailDetails.map(e => `- ${e.name}${e.type === 'doctor' ? ' (Doctor)' : e.type === 'emergency_contact' ? ` (${e.relationship || 'Emergency Contact'})` : ''}: ${e.email}`).join('\n')}
+
+---
+This is an automated message from MindTrack. Please do not reply to this email.`;
 
   const mailOptions = {
     from: process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER,
     to: Array.from(recipients).join(','),
-    subject: 'MindTrack Red Alert: Immediate Attention Recommended',
-    text: `A potential crisis was detected for ${requester?.name || 'a patient'} (${requester?.email}).\n\nSummary:\n${summary}\n\nRecent Q&A:\n${answers.map((a,i)=>`Q${i+1}: ${QUESTIONS[i]}\nA${i+1}: ${a}`).join('\n\n')}\n\nPlease reach out as appropriate.`
+    subject: emailSubject,
+    text: emailText
   };
 
   try {
+    console.log('=== SENDING RED ALERT EMAILS ===');
+    console.log('Recipients:', Array.from(recipients));
+    console.log('Email details:', emailDetails);
     await transporter.sendMail(mailOptions);
-    return { sent: true };
+    console.log('Red alert emails sent successfully');
+    return { sent: true, recipients: Array.from(recipients), count: recipients.size };
   } catch (e) {
+    console.error('Failed to send red alert emails:', e);
     return { sent: false, reason: 'send_failed', error: String(e) };
   }
 }

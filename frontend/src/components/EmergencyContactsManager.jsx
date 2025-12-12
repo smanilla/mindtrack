@@ -7,7 +7,7 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
   const [error, setError] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
-  const [formData, setFormData] = useState({ name: '', phone: '', relationship: '' });
+  const [formData, setFormData] = useState({ name: '', phone: '', email: '', relationship: '' });
 
   useEffect(() => {
     loadContacts();
@@ -47,7 +47,7 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
       );
       
       setContacts(res.data.emergencyContacts);
-      setFormData({ name: '', phone: '', relationship: '' });
+      setFormData({ name: '', phone: '', email: '', relationship: '' });
       setShowAddForm(false);
       setEditingContact(null);
     } catch (e) {
@@ -78,13 +78,14 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
     setFormData({
       name: contact.name,
       phone: contact.phone,
+      email: contact.email || '',
       relationship: contact.relationship || ''
     });
     setShowAddForm(true);
   }
 
   function handleCancel() {
-    setFormData({ name: '', phone: '', relationship: '' });
+    setFormData({ name: '', phone: '', email: '', relationship: '' });
     setShowAddForm(false);
     setEditingContact(null);
   }
@@ -115,7 +116,7 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
       {!showAddForm ? (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <p style={{ margin: 0 }}>Emergency contacts will be automatically notified via voice call during red alerts.</p>
+            <p style={{ margin: 0 }}>Emergency contacts will be automatically notified via email and voice call during red alerts.</p>
             <button
               onClick={() => setShowAddForm(true)}
               style={{
@@ -153,8 +154,9 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
                 >
                   <div style={{ flex: 1 }}>
                     <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{contact.name}</h3>
-                    <div style={{ display: 'flex', gap: '16px', color: '#666', fontSize: '14px' }}>
+                    <div style={{ display: 'flex', gap: '16px', color: '#666', fontSize: '14px', flexWrap: 'wrap' }}>
                       <span>📞 {contact.phone}</span>
+                      {contact.email && <span>📧 {contact.email}</span>}
                       {contact.relationship && <span>👤 {contact.relationship}</span>}
                     </div>
                   </div>
@@ -218,6 +220,20 @@ export default function EmergencyContactsManager({ patientId, onClose }) {
             />
             <small style={{ display: 'block', color: '#666', marginTop: '4px' }}>
               Include country code (e.g., +1 for US)
+            </small>
+          </div>
+
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: 600 }}>Email Address</label>
+            <input
+              type="email"
+              value={formData.email}
+              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              placeholder="contact@example.com"
+              style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: 6 }}
+            />
+            <small style={{ display: 'block', color: '#666', marginTop: '4px' }}>
+              Emergency contact email (will receive red alert notifications)
             </small>
           </div>
 

@@ -12,6 +12,7 @@ const userSchema = new mongoose.Schema(
     emergencyContacts: [{
       name: { type: String, required: true },
       phone: { type: String, required: true },
+      email: { type: String, default: '' }, // Emergency contact email
       relationship: { type: String, default: '' } // e.g., "spouse", "parent", "friend"
     }]
   },
