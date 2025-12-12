@@ -10,21 +10,22 @@ const Journal = require('../models/Journal');
 const Assessment = require('../models/Assessment');
 
 const patientNames = [
-  'Alice Johnson', 'Bob Smith', 'Charlie Brown', 'Diana Prince', 'Ethan Hunt',
-  'Fiona Chen', 'George Wilson', 'Hannah Martinez', 'Ian Thompson', 'Julia Davis'
+  'Rahim Rahman', 'Ayesha Begum', 'Karim Hossain', 'Fatima Ahmed', 'Hasan Ali',
+  'Rina Khan', 'Kamal Uddin', 'Nusrat Islam', 'Sohel Chowdhury', 'Tania Mia'
 ];
 
 const moods = ['very_good', 'good', 'neutral', 'bad', 'very_bad'];
 const journalTitles = [
   'Morning Reflection', 'Evening Thoughts', 'Daily Gratitude', 'Weekend Musings',
   'Work Stress', 'Family Time', 'Self-Care Day', 'Challenging Day', 'Breakthrough Moment',
-  'Quiet Evening', 'Busy Day', 'Peaceful Morning', 'Anxious Thoughts', 'Happy Memories'
+  'Quiet Evening', 'Busy Day', 'Peaceful Morning', 'Anxious Thoughts', 'Happy Memories',
+  'Friday Prayer', 'Eid Preparation', 'Family Gathering', 'Study Session', 'Market Visit'
 ];
 
 const journalContents = [
   'Today was a productive day. I felt more energized and focused on my tasks.',
   'Had a difficult conversation but handled it well. Feeling proud of my growth.',
-  'Spent time with friends which lifted my spirits. Social connection is important.',
+  'Spent time with family which lifted my spirits. Family connection is important.',
   'Struggled with anxiety today but used breathing exercises to manage it.',
   'Feeling grateful for the small moments of joy throughout the day.',
   'Work was stressful but I took breaks and practiced mindfulness.',
@@ -36,7 +37,12 @@ const journalContents = [
   'Felt more balanced today. The medication seems to be helping.',
   'Struggled with motivation but pushed through and got things done.',
   'Had a breakthrough moment in understanding my patterns.',
-  'Feeling hopeful about the future despite current challenges.'
+  'Feeling hopeful about the future despite current challenges.',
+  'Attended Friday prayer today. It brought me peace and clarity.',
+  'Spent quality time with family during iftar. These moments matter.',
+  'Visited the local market. The hustle and bustle reminded me of life\'s energy.',
+  'Had a long conversation with a friend. Good to catch up and share thoughts.',
+  'Studied for my exams today. Feeling more prepared and confident.'
 ];
 
 const assessmentSummaries = [
@@ -57,21 +63,58 @@ async function generateDummyData() {
     await connectDB();
     console.log('Connected to database');
 
-    // Find the doctor
-    const doctor = await User.findOne({ email: 'sfatemon@gmail.com', role: 'doctor' });
+    // Find or create the doctor
+    let doctor = await User.findOne({ email: 'fatema@gmail.com', role: 'doctor' });
     if (!doctor) {
-      console.error('Doctor not found! Please make sure the doctor account exists.');
-      process.exit(1);
+      console.log('Doctor not found. Creating doctor account...');
+      doctor = await User.create({
+        name: 'Dr. Fatema',
+        email: 'fatema@gmail.com',
+        password: 'password123',
+        role: 'doctor'
+      });
+      console.log(`✅ Created doctor account: ${doctor.name} (${doctor.email})`);
+    } else {
+      console.log(`Found doctor: ${doctor.name}`);
     }
-    console.log(`Found doctor: ${doctor.name}`);
 
-    // Create 10 patients
+    // Delete all existing patients with patient1@example.com through patient10@example.com emails
+    console.log('\nDeleting old patients and their data...');
+    const patientEmails = [];
+    for (let i = 1; i <= 10; i++) {
+      patientEmails.push(`patient${i}@example.com`);
+    }
+    
+    const oldPatients = await User.find({ 
+      email: { $in: patientEmails },
+      role: 'patient' 
+    });
+    
+    for (const oldPatient of oldPatients) {
+      // Delete all data for old patients
+      await Entry.deleteMany({ user: oldPatient._id });
+      await Journal.deleteMany({ user: oldPatient._id });
+      await Assessment.deleteMany({ user: oldPatient._id });
+      // Delete the patient
+      await User.findByIdAndDelete(oldPatient._id);
+      console.log(`Deleted old patient: ${oldPatient.name} (${oldPatient.email})`);
+    }
+    console.log(`Deleted ${oldPatients.length} old patient(s)\n`);
+
+    // Create 10 new patients with Bangladeshi names
     const patients = [];
     for (let i = 0; i < 10; i++) {
       const email = `patient${i + 1}@example.com`;
+      // Check if patient already exists (shouldn't after deletion, but just in case)
       let patient = await User.findOne({ email });
-      
-      if (!patient) {
+      if (patient) {
+        // Update existing patient with new name and doctor
+        patient.name = patientNames[i];
+        patient.doctor = doctor._id;
+        await patient.save();
+        console.log(`Updated patient: ${patient.name} (${patient.email})`);
+      } else {
+        // Create new patient
         patient = await User.create({
           name: patientNames[i],
           email: email,
@@ -79,9 +122,7 @@ async function generateDummyData() {
           role: 'patient',
           doctor: doctor._id
         });
-        console.log(`Created patient: ${patient.name}`);
-      } else {
-        console.log(`Patient already exists: ${patient.name}`);
+        console.log(`✅ Created patient: ${patient.name} (${patient.email})`);
       }
       patients.push(patient);
     }
@@ -139,16 +180,20 @@ async function generateDummyData() {
 
         // Create assessment (once every 3-4 days)
         if (day % 3 === 0 || day % 4 === 0) {
+          const activities = ['Went for a walk', 'Rest day', 'Visited family', 'Attended prayer', 'Studied', 'Went to market', 'Met with friends'];
+          const copingStrategies = ['Used breathing exercises', 'Talked to a friend', 'Prayed', 'Spent time with family', 'Listened to music', 'Read a book'];
+          const events = ['Work related', 'Personal time', 'Family gathering', 'Study session', 'Social event', 'Religious activity'];
+          
           const answers = [
             `Feeling ${mood} today`,
-            `Most significant event: ${Math.random() > 0.5 ? 'Work related' : 'Personal time'}`,
+            `Most significant event: ${events[Math.floor(Math.random() * events.length)]}`,
             `Triggers: ${Math.random() > 0.5 ? 'Some stress at work' : 'None significant'}`,
             `Energy: ${Math.random() > 0.5 ? 'Moderate' : 'Low'}`,
             `Sleep: ${sleepHours} hours, quality was ${Math.random() > 0.5 ? 'good' : 'fair'}`,
-            `Activity: ${Math.random() > 0.5 ? 'Went for a walk' : 'Rest day'}`,
+            `Activity: ${activities[Math.floor(Math.random() * activities.length)]}`,
             `Interactions: ${Math.random() > 0.5 ? 'Positive' : 'Neutral'}`,
             `Thoughts: ${Math.random() > 0.5 ? 'Some worry but manageable' : 'Generally positive'}`,
-            `Coping: ${Math.random() > 0.5 ? 'Used breathing exercises' : 'Talked to a friend'}`,
+            `Coping: ${copingStrategies[Math.floor(Math.random() * copingStrategies.length)]}`,
             `Support needed: ${Math.random() > 0.5 ? 'None right now' : 'Some guidance would help'}`
           ];
 

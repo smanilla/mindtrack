@@ -10,26 +10,9 @@ The script will create:
 
 ### Steps:
 
-1. **Create the doctor account first (if it doesn't exist):**
-   - Go to the registration page: `/register` (or use Postman/API)
-   - Register with:
-     - **Email:** `sfatemon@gmail.com`
-     - **Password:** `password123` (or your preferred password)
-     - **Role:** `doctor`
-   - **OR use the API directly:**
-     ```bash
-     POST http://localhost:5000/api/auth/register
-     {
-       "name": "Dr. Sfatemon",
-       "email": "sfatemon@gmail.com",
-       "password": "password123",
-       "role": "doctor"
-     }
-     ```
-
-2. **Make sure your backend is set up:**
+1. **Make sure your backend is set up:**
    - MongoDB connection is working
-   - Doctor account exists: `sfatemon@gmail.com`
+   - Backend dependencies installed
 
 2. **Run the script:**
    ```bash
@@ -39,18 +22,28 @@ The script will create:
 
 3. **The script will:**
    - Connect to your database
-   - Find your doctor account
-   - Create 10 patients (or use existing ones)
+   - **Automatically create the doctor account** if it doesn't exist (fatema@gmail.com)
+   - Create 10 patients with Bangladeshi names (or use existing ones)
    - Generate 30 days of data for each patient
    - Create entries, journals, and AI assessments
 
 4. **Login credentials:**
    - **Doctor:**
-     - Email: `sfatemon@gmail.com`
-     - Password: `password123` (or the password you set during registration)
-   - **Patients:**
-     - Email: `patient1@example.com` through `patient10@example.com`
-     - Password: `password123` (for all)
+     - Email: `fatema@gmail.com`
+     - Password: `password123`
+     - Note: The script automatically creates this account if it doesn't exist
+   - **Patients (with Bangladeshi names):**
+     - Rahim Rahman: `patient1@example.com`
+     - Ayesha Begum: `patient2@example.com`
+     - Karim Hossain: `patient3@example.com`
+     - Fatima Ahmed: `patient4@example.com`
+     - Hasan Ali: `patient5@example.com`
+     - Rina Khan: `patient6@example.com`
+     - Kamal Uddin: `patient7@example.com`
+     - Nusrat Islam: `patient8@example.com`
+     - Sohel Chowdhury: `patient9@example.com`
+     - Tania Mia: `patient10@example.com`
+     - Password: `password123` (for all patients)
 
 ### Notes:
 - The script will delete existing data for these patients before generating new data

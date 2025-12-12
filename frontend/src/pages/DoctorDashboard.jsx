@@ -192,13 +192,44 @@ export default function DoctorDashboard() {
               color: '#000',
               border: 'none',
               padding: '10px 20px',
-              borderRadius: '6px',
+              borderRadius: '8px',
               cursor: isLoadingPatients ? 'not-allowed' : 'pointer',
               fontSize: '14px',
-              fontWeight: '500'
+              fontWeight: '600',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              boxShadow: isLoadingPatients ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
+              transition: 'all 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              if (!isLoadingPatients) {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 4px 8px rgba(0,0,0,0.15)';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isLoadingPatients) {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+              }
             }}
           >
-            {isLoadingPatients ? '⏳ Loading...' : '🔄 Refresh'}
+            {isLoadingPatients ? (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{animation: 'spin 1s linear infinite'}}>
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <span>Loading...</span>
+              </>
+            ) : (
+              <>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+                </svg>
+                <span>Refresh</span>
+              </>
+            )}
           </button>
         </div>
       </div>

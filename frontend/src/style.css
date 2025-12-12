@@ -1334,18 +1334,22 @@ button:disabled {
 }
 
 .back-btn {
-  background: #f3f4f6;
+  background: #75B1BE;
+  color: #000;
   border: none;
   padding: 10px 16px;
   border-radius: 8px;
   cursor: pointer;
-  font-weight: 500;
+  font-weight: 600;
   font-size: 14px;
   transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .back-btn:hover {
-  background: #e5e7eb;
+  background: #5a9ba8;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
 .entries-list {
@@ -2493,6 +2497,15 @@ a:hover {
   }
   50% {
     box-shadow: 0 0 0 10px rgba(255, 193, 7, 0);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
   }
 }
 
