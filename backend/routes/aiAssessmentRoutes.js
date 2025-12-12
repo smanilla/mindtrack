@@ -36,11 +36,26 @@ try {
     transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
-      secure: false,
+      secure: false, // true for 465, false for other ports
       auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
     });
+    console.log('✅ Email transporter initialized successfully');
+    console.log('SMTP Host:', process.env.SMTP_HOST);
+    console.log('SMTP Port:', process.env.SMTP_PORT || 587);
+    console.log('SMTP User:', process.env.SMTP_USER);
+  } else {
+    if (ENABLE_ALERT_EMAILS) {
+      console.log('⚠️ Email alerts enabled but SMTP not fully configured');
+      console.log('SMTP_HOST:', process.env.SMTP_HOST ? 'SET' : 'NOT SET');
+      console.log('SMTP_USER:', process.env.SMTP_USER ? 'SET' : 'NOT SET');
+      console.log('SMTP_PASS:', process.env.SMTP_PASS ? 'SET' : 'NOT SET');
+    } else {
+      console.log('ℹ️ Email alerts disabled (ENABLE_ALERT_EMAILS != "true")');
+    }
   }
-} catch (_) {}
+} catch (e) {
+  console.error('❌ Failed to initialize email transporter:', e.message);
+}
 
 // Twilio (optional) setup for voice calls
 const ENABLE_VOICE_CALLS = process.env.ENABLE_VOICE_CALLS === 'true';
@@ -542,11 +557,13 @@ router.get('/voice-message-test-twilio', (req, res) => {
   res.send(twiml);
 });
 
-// Diagnostic endpoint to check Twilio configuration
+// Diagnostic endpoint to check Twilio and Email configuration
 router.get('/twilio-config-check', protect, (req, res) => {
   const config = {
     enableVoiceCalls: ENABLE_VOICE_CALLS,
     twilioClientInitialized: !!twilioClient,
+    enableAlertEmails: ENABLE_ALERT_EMAILS,
+    transporterInitialized: !!transporter,
     environmentVariables: {
       ENABLE_VOICE_CALLS: process.env.ENABLE_VOICE_CALLS || 'NOT SET',
       TWILIO_ACCOUNT_SID: process.env.TWILIO_ACCOUNT_SID ? 'SET (hidden)' : 'NOT SET',
@@ -555,7 +572,13 @@ router.get('/twilio-config-check', protect, (req, res) => {
       API_URL: process.env.API_URL || 'NOT SET',
       VERCEL_URL: process.env.VERCEL_URL || 'NOT SET',
       RED_ALERT_VOICE_AUDIO_URL: process.env.RED_ALERT_VOICE_AUDIO_URL ? 'SET' : 'NOT SET',
-      TWIML_BIN_URL: process.env.TWIML_BIN_URL ? 'SET' : 'NOT SET'
+      TWIML_BIN_URL: process.env.TWIML_BIN_URL ? 'SET' : 'NOT SET',
+      ENABLE_ALERT_EMAILS: process.env.ENABLE_ALERT_EMAILS || 'NOT SET',
+      SMTP_HOST: process.env.SMTP_HOST || 'NOT SET',
+      SMTP_USER: process.env.SMTP_USER || 'NOT SET',
+      SMTP_PASS: process.env.SMTP_PASS ? 'SET (hidden)' : 'NOT SET',
+      SMTP_PORT: process.env.SMTP_PORT || '587 (default)',
+      MAIL_FROM: process.env.MAIL_FROM || process.env.SMTP_FROM || 'NOT SET'
     },
     issues: []
   };
@@ -579,15 +602,40 @@ router.get('/twilio-config-check', protect, (req, res) => {
   if (!process.env.API_URL && !process.env.VERCEL_URL) {
     config.issues.push('API_URL is not set (needed for TwiML endpoint)');
   }
+  
+  // Email configuration issues
+  if (!ENABLE_ALERT_EMAILS) {
+    config.issues.push('ENABLE_ALERT_EMAILS is not set to "true"');
+  }
+  if (!process.env.SMTP_HOST) {
+    config.issues.push('SMTP_HOST is not set (required for email alerts)');
+  }
+  if (!process.env.SMTP_USER) {
+    config.issues.push('SMTP_USER is not set (required for email alerts)');
+  }
+  if (!process.env.SMTP_PASS) {
+    config.issues.push('SMTP_PASS is not set (required for email alerts)');
+  }
+  if (!transporter) {
+    config.issues.push('Email transporter is not initialized (check SMTP configuration)');
+  }
 
-  // Check user's phone numbers
-  User.findById(req.user._id).select('emergencyContacts doctor phone').then(user => {
+  // Check user's phone numbers and email addresses
+  User.findById(req.user._id).select('emergencyContacts doctor phone email').then(user => {
     const phoneNumbers = [];
+    const emailAddresses = [];
+    
+    // Check doctor
     if (user?.doctor) {
-      User.findById(user.doctor).select('phone name').then(doctor => {
+      User.findById(user.doctor).select('phone name email').then(doctor => {
         if (doctor?.phone) {
           phoneNumbers.push({ phone: doctor.phone, name: doctor.name || 'Doctor', type: 'doctor' });
         }
+        if (doctor?.email) {
+          emailAddresses.push({ email: doctor.email, name: doctor.name || 'Doctor', type: 'doctor' });
+        }
+        
+        // Check emergency contacts
         if (user?.emergencyContacts && Array.isArray(user.emergencyContacts)) {
           user.emergencyContacts.forEach(contact => {
             if (contact.phone) {
@@ -597,19 +645,37 @@ router.get('/twilio-config-check', protect, (req, res) => {
                 type: 'emergency_contact' 
               });
             }
+            if (contact.email && /@/.test(contact.email)) {
+              emailAddresses.push({ 
+                email: contact.email, 
+                name: contact.name || 'Emergency Contact', 
+                type: 'emergency_contact',
+                relationship: contact.relationship || ''
+              });
+            }
           });
         }
+        
         config.userPhoneNumbers = phoneNumbers;
         config.phoneNumberCount = phoneNumbers.length;
+        config.userEmailAddresses = emailAddresses;
+        config.emailAddressCount = emailAddresses.length;
+        
         if (phoneNumbers.length === 0) {
           config.issues.push('No phone numbers found (no doctor phone or emergency contacts)');
         }
+        if (emailAddresses.length === 0) {
+          config.issues.push('No email addresses found (no doctor email or emergency contact emails)');
+        }
+        
         res.json(config);
       }).catch(() => {
         config.userPhoneNumbers = phoneNumbers;
+        config.userEmailAddresses = emailAddresses;
         res.json(config);
       });
     } else {
+      // No doctor assigned
       if (user?.emergencyContacts && Array.isArray(user.emergencyContacts)) {
         user.emergencyContacts.forEach(contact => {
           if (contact.phone) {
@@ -619,13 +685,28 @@ router.get('/twilio-config-check', protect, (req, res) => {
               type: 'emergency_contact' 
             });
           }
+          if (contact.email && /@/.test(contact.email)) {
+            emailAddresses.push({ 
+              email: contact.email, 
+              name: contact.name || 'Emergency Contact', 
+              type: 'emergency_contact',
+              relationship: contact.relationship || ''
+            });
+          }
         });
       }
       config.userPhoneNumbers = phoneNumbers;
       config.phoneNumberCount = phoneNumbers.length;
+      config.userEmailAddresses = emailAddresses;
+      config.emailAddressCount = emailAddresses.length;
+      
       if (phoneNumbers.length === 0) {
         config.issues.push('No phone numbers found (no doctor phone or emergency contacts)');
       }
+      if (emailAddresses.length === 0) {
+        config.issues.push('No email addresses found (no doctor email or emergency contact emails)');
+      }
+      
       res.json(config);
     }
   }).catch(err => {
@@ -769,6 +850,13 @@ async function sendRedAlertNotifications({ requester, summary, answers, extraCon
   console.log('TWILIO_PHONE_NUMBER set:', !!process.env.TWILIO_PHONE_NUMBER);
   console.log('API_URL set:', !!process.env.API_URL);
   console.log('API_URL value:', process.env.API_URL || 'NOT SET');
+  console.log('--- EMAIL CONFIGURATION ---');
+  console.log('ENABLE_ALERT_EMAILS:', ENABLE_ALERT_EMAILS);
+  console.log('transporter initialized:', !!transporter);
+  console.log('SMTP_HOST set:', !!process.env.SMTP_HOST);
+  console.log('SMTP_USER set:', !!process.env.SMTP_USER);
+  console.log('SMTP_PASS set:', !!process.env.SMTP_PASS);
+  console.log('SMTP_PORT:', process.env.SMTP_PORT || '587 (default)');
 
   // Send emails
   results.emails = await sendRedAlertEmails({ requester, summary, answers, extraContacts });
