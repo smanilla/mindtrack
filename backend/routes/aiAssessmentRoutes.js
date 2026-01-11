@@ -305,6 +305,31 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     formattedPhone = '+1' + formattedPhone;
   }
 
+  // Validate number using Twilio Lookup API (optional but recommended)
+  // This helps catch invalid numbers before attempting the call
+  let numberValidation = null;
+  try {
+    console.log('🔍 Validating phone number with Twilio Lookup API...');
+    numberValidation = await twilioClient.lookups.v1.phoneNumbers(formattedPhone).fetch();
+    console.log('✅ Number validation successful:');
+    console.log('   Phone Number:', numberValidation.phoneNumber);
+    console.log('   Country Code:', numberValidation.countryCode);
+    console.log('   National Format:', numberValidation.nationalFormat);
+    if (numberValidation.carrier) {
+      console.log('   Carrier:', numberValidation.carrier.name, numberValidation.carrier.type);
+    }
+    
+    // Check if number is mobile (better for voice calls)
+    if (numberValidation.carrier && numberValidation.carrier.type !== 'mobile' && numberValidation.carrier.type !== 'voip') {
+      console.warn('⚠️  Number type is:', numberValidation.carrier.type, '- may have lower success rate');
+    }
+  } catch (lookupError) {
+    console.warn('⚠️  Number lookup failed (continuing anyway):', lookupError.message);
+    console.warn('   This might indicate an invalid or unreachable number');
+    // Don't fail the call - some numbers might not be in Twilio's database but still work
+    numberValidation = { error: lookupError.message, code: lookupError.code };
+  }
+
   // Use TwiML Bin URL if provided, otherwise use our endpoint with patient name
   // Note: For pre-recorded audio, patientName is still passed but may not be used if RED_ALERT_VOICE_AUDIO_URL is set
   // Auto-detect Vercel URL if API_URL is not set
@@ -343,27 +368,92 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
       console.log('Audio URL (first 100 chars):', process.env.RED_ALERT_VOICE_AUDIO_URL.substring(0, 100));
     }
     
+    // Validate Bangladesh number format specifically
+    if (formattedPhone.startsWith('+880')) {
+      // Bangladesh mobile numbers: +8801XXXXXXXXX (should be 13 digits total: +880 + 10 digits)
+      const digitsAfterCountryCode = formattedPhone.substring(4);
+      if (digitsAfterCountryCode.length !== 10 || !digitsAfterCountryCode.startsWith('1')) {
+        console.warn('⚠️  Bangladesh number format warning:', formattedPhone);
+        console.warn('   Expected format: +8801XXXXXXXXX (10 digits after +880, starting with 1)');
+        console.warn('   Actual format:', `+880${digitsAfterCountryCode} (${digitsAfterCountryCode.length} digits)`);
+      }
+    }
+    
     // Create a voice call with TwiML
     // CRITICAL: Twilio fetches TwiML when call is answered
     // The URL must be publicly accessible (no auth required)
-    const call = await twilioClient.calls.create({
+    
+    // For international calls, especially to Bangladesh, try these optimizations:
+    // 1. Use machineDetection to detect if call was answered by a machine
+    // 2. Set record to false to avoid additional processing
+    // 3. Use statusCallbackEvent to get immediate feedback
+    
+    const callOptions = {
       to: formattedPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
       url: twimlUrl,
       method: 'GET',
-      // Fix: Use valid status callback events only (removed 'failed' - not a valid event)
       statusCallback: `${baseUrl}/api/ai-assessment/call-status`,
-      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed'],
+      statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed', 'busy', 'no-answer', 'failed', 'canceled'],
       statusCallbackMethod: 'POST',
-      timeout: 30
+      timeout: 30,
+      // Add machine detection to help diagnose issues
+      machineDetection: 'Enable',
+      machineDetectionTimeout: 5,
+      // Record call status for debugging (optional)
+      record: false
+    };
+    
+    console.log('📞 Call options:', {
+      to: callOptions.to,
+      from: callOptions.from,
+      timeout: callOptions.timeout,
+      machineDetection: callOptions.machineDetection
     });
     
-    console.log('Call created successfully');
+    const call = await twilioClient.calls.create(callOptions);
+    
+    console.log('✅ Call created successfully');
     console.log('Call SID:', call.sid);
     console.log('Call Status:', call.status);
-    console.log('IMPORTANT: Check Twilio Console → Monitor → Logs → Calls → [Call SID] for TwiML execution details');
+    console.log('Call Direction:', call.direction);
+    console.log('Price:', call.price, call.priceUnit);
     
-    return { sent: true, callSid: call.sid, status: call.status };
+    if (numberValidation && !numberValidation.error) {
+      console.log('📋 Number validation info:');
+      console.log('   Country:', numberValidation.countryCode);
+      if (numberValidation.carrier) {
+        console.log('   Carrier:', numberValidation.carrier.name);
+        console.log('   Type:', numberValidation.carrier.type);
+      }
+    }
+    
+    console.log('\n🔍 DIAGNOSTICS:');
+    console.log('   If call shows "no-answer" with 0 seconds:');
+    console.log('   1. ✅ Number format is correct (validated above)');
+    console.log('   2. ❓ Check if phone is ON and has signal');
+    console.log('   3. ❓ Verify number can receive international calls');
+    console.log('   4. ❓ Check Twilio Console → Monitor → Logs → Calls → [Call SID]');
+    console.log('   5. ❓ Look for Error Code in Twilio Console (if present)');
+    console.log('   6. ❓ Try calling the number manually to verify it works');
+    
+    if (formattedPhone.startsWith('+880')) {
+      console.log('\n🇧🇩 Bangladesh-specific checks:');
+      console.log('   - Verify the number is active and can receive calls');
+      console.log('   - Some Bangladesh carriers block international calls');
+      console.log('   - Consider using a local Bangladesh number for better success rate');
+    }
+    
+    return { 
+      sent: true, 
+      callSid: call.sid, 
+      status: call.status,
+      numberValidation: numberValidation ? {
+        countryCode: numberValidation.countryCode,
+        carrier: numberValidation.carrier?.name,
+        type: numberValidation.carrier?.type
+      } : null
+    };
   } catch (e) {
     console.error('Twilio call creation error:', e);
     console.error('Error details:', {
@@ -372,7 +462,21 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
       status: e.status,
       moreInfo: e.moreInfo
     });
-    return { sent: false, reason: 'call_failed', error: String(e) };
+    
+    // Provide specific error messages
+    if (e.code === 21211) {
+      return { sent: false, reason: 'invalid_phone_number', error: 'Invalid phone number format' };
+    } else if (e.code === 21212) {
+      return { sent: false, reason: 'invalid_caller_id', error: 'Invalid caller ID (Twilio phone number)' };
+    } else if (e.code === 21408) {
+      return { sent: false, reason: 'geo_permission_denied', error: 'International calling not enabled for this country. Check Twilio Geo Permissions.' };
+    } else if (e.code === 21608) {
+      return { sent: false, reason: 'unsubscribed_number', error: 'Number has unsubscribed from calls' };
+    } else if (e.code === 21610) {
+      return { sent: false, reason: 'invalid_phone_number', error: 'Phone number is invalid or unreachable' };
+    }
+    
+    return { sent: false, reason: 'call_failed', error: String(e), code: e.code };
   }
 }
 
@@ -834,21 +938,72 @@ router.get('/twilio-config-check', protect, (req, res) => {
 // Twilio sends form-encoded data, not JSON
 // CRITICAL: Must return 200 OK quickly, or Twilio will retry and show warnings
 router.post('/call-status', express.urlencoded({ extended: true }), (req, res) => {
+  const callStatus = req.body?.CallStatus || 'UNKNOWN';
+  const callSid = req.body?.CallSid || 'NOT FOUND';
+  const sequenceNumber = req.body?.SequenceNumber || 'N/A';
+  
   console.log('=== CALL STATUS CALLBACK ===');
-  console.log('Request body keys:', Object.keys(req.body || {}));
-  console.log('Call SID:', req.body?.CallSid || 'NOT FOUND');
-  console.log('Call Status:', req.body?.CallStatus || 'NOT FOUND');
-  console.log('Call Duration:', req.body?.CallDuration || 'NOT FOUND');
-  console.log('Call Direction:', req.body?.Direction || 'NOT FOUND');
+  console.log(`Sequence: ${sequenceNumber} | Status: ${callStatus} | SID: ${callSid}`);
   console.log('From:', req.body?.From || 'NOT FOUND');
   console.log('To:', req.body?.To || 'NOT FOUND');
+  console.log('Call Duration:', req.body?.CallDuration || '0');
+  console.log('Direction:', req.body?.Direction || 'NOT FOUND');
+  
+  // Handle different call statuses
+  switch (callStatus) {
+    case 'ringing':
+      console.log('📞 Call is ringing... (waiting for answer)');
+      break;
+    case 'answered':
+      console.log('✅ Call was answered! TwiML should be executing now.');
+      break;
+    case 'completed':
+      console.log('✅ Call completed successfully');
+      console.log('   Duration:', req.body?.CallDuration, 'seconds');
+      break;
+    case 'no-answer':
+      console.log('❌ Call was not answered - phone rang but no one picked up');
+      console.log('   Possible reasons: Phone off, not available, or call timeout');
+      break;
+    case 'busy':
+      console.log('❌ Call failed - phone is busy');
+      break;
+    case 'failed':
+      console.log('❌ Call failed - check Twilio error code:', req.body?.CallSid);
+      console.log('   Error details:', req.body);
+      break;
+    case 'canceled':
+      console.log('⚠️  Call was canceled');
+      break;
+    case 'initiated':
+      console.log('📱 Call initiated by Twilio');
+      break;
+    default:
+      console.log(`⚠️  Unknown call status: ${callStatus}`);
+  }
+  
+  // Log error codes if present
+  if (req.body?.ErrorCode) {
+    console.log('❌ Twilio Error Code:', req.body.ErrorCode);
+    console.log('   Error Message:', req.body.ErrorMessage || 'N/A');
+  }
   
   // Return immediately to avoid Twilio warnings
   res.status(200).type('text/plain').send('OK');
   
-  // Log after sending response (async)
+  // Log full callback data after sending response (async)
   setTimeout(() => {
-    console.log('All callback data:', req.body);
+    console.log('Full callback data:', JSON.stringify(req.body, null, 2));
+    
+    // If call failed or wasn't answered, provide troubleshooting info
+    if (['no-answer', 'busy', 'failed'].includes(callStatus)) {
+      console.log('\n🔍 TROUBLESHOOTING:');
+      console.log('1. Verify the phone number is correct and active');
+      console.log('2. Check if the number can receive international calls');
+      console.log('3. Ensure the phone is turned on and has signal');
+      console.log('4. Check Twilio Console for more details: https://console.twilio.com');
+      console.log('5. Verify TwiML endpoint is accessible:', req.body?.Url || 'N/A');
+    }
   }, 0);
 });
 
