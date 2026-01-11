@@ -557,6 +557,121 @@ router.get('/voice-message-test-twilio', (req, res) => {
   res.send(twiml);
 });
 
+// Test email endpoint - sends a test email to verify SMTP configuration
+router.post('/test-email', protect, async (req, res) => {
+  if (!ENABLE_ALERT_EMAILS) {
+    return res.status(400).json({ 
+      error: 'Email alerts are disabled',
+      message: 'Set ENABLE_ALERT_EMAILS=true to enable email alerts'
+    });
+  }
+
+  if (!transporter) {
+    return res.status(400).json({ 
+      error: 'Email transporter not initialized',
+      message: 'Check SMTP configuration (SMTP_HOST, SMTP_USER, SMTP_PASS)',
+      config: {
+        SMTP_HOST: process.env.SMTP_HOST || 'NOT SET',
+        SMTP_USER: process.env.SMTP_USER || 'NOT SET',
+        SMTP_PASS: process.env.SMTP_PASS ? 'SET' : 'NOT SET',
+        SMTP_PORT: process.env.SMTP_PORT || '587 (default)'
+      }
+    });
+  }
+
+  const { testEmail } = req.body;
+  if (!testEmail || !/@/.test(testEmail)) {
+    return res.status(400).json({ 
+      error: 'Invalid email address',
+      message: 'Please provide a valid test email address'
+    });
+  }
+
+  try {
+    console.log('=== TEST EMAIL SENDING ===');
+    console.log('To:', testEmail);
+    console.log('From:', process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER);
+    console.log('SMTP Host:', process.env.SMTP_HOST);
+    console.log('SMTP User:', process.env.SMTP_USER);
+    console.log('SMTP Pass length:', process.env.SMTP_PASS ? process.env.SMTP_PASS.length : 0);
+    console.log('SMTP Pass first char:', process.env.SMTP_PASS ? process.env.SMTP_PASS[0] : 'N/A');
+    console.log('SMTP Pass last char:', process.env.SMTP_PASS ? process.env.SMTP_PASS[process.env.SMTP_PASS.length - 1] : 'N/A');
+
+    const mailOptions = {
+      from: process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: testEmail,
+      subject: '🧪 MindTrack Email Test',
+      text: `This is a test email from MindTrack.
+
+If you received this email, your SMTP configuration is working correctly!
+
+Configuration Details:
+- SMTP Host: ${process.env.SMTP_HOST}
+- SMTP Port: ${process.env.SMTP_PORT || 587}
+- From: ${process.env.MAIL_FROM || process.env.SMTP_FROM || process.env.SMTP_USER}
+
+Time: ${new Date().toISOString()}
+`
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('✅ Test email sent successfully');
+    console.log('Message ID:', info.messageId);
+
+    res.json({
+      success: true,
+      message: 'Test email sent successfully',
+      messageId: info.messageId,
+      to: testEmail
+    });
+  } catch (error) {
+    console.error('❌ Test email failed:', error);
+    console.error('Error code:', error.code);
+    console.error('Error response:', error.response);
+    console.error('Error command:', error.command);
+
+    let errorMessage = 'Failed to send test email';
+    let suggestions = [];
+
+    if (error.code === 'EAUTH') {
+      errorMessage = 'Gmail authentication failed';
+      suggestions = [
+        'Make sure you are using an App Password (not your regular Gmail password)',
+        'Verify 2-factor authentication is enabled on your Gmail account',
+        'Generate a new App Password at https://myaccount.google.com/apppasswords',
+        'Check that SMTP_USER matches the Gmail account used to generate the App Password',
+        'Make sure there are no extra spaces or characters in SMTP_PASS',
+        'If you updated Vercel environment variables, make sure you redeployed the application'
+      ];
+    } else if (error.code === 'ECONNECTION') {
+      errorMessage = 'Could not connect to SMTP server';
+      suggestions = [
+        'Check your internet connection',
+        'Verify SMTP_HOST is correct (smtp.gmail.com)',
+        'Check if port 587 is blocked by firewall'
+      ];
+    }
+
+    res.status(500).json({
+      success: false,
+      error: errorMessage,
+      details: {
+        code: error.code,
+        message: error.message,
+        response: error.response,
+        command: error.command
+      },
+      suggestions,
+      troubleshooting: {
+        smtpHost: process.env.SMTP_HOST,
+        smtpUser: process.env.SMTP_USER,
+        smtpPassSet: !!process.env.SMTP_PASS,
+        smtpPassLength: process.env.SMTP_PASS ? process.env.SMTP_PASS.length : 0
+      }
+    });
+  }
+});
+
 // Diagnostic endpoint to check Twilio and Email configuration
 router.get('/twilio-config-check', protect, (req, res) => {
   const config = {
@@ -827,12 +942,33 @@ This is an automated message from MindTrack. Please do not reply to this email.`
     console.log('=== SENDING RED ALERT EMAILS ===');
     console.log('Recipients:', Array.from(recipients));
     console.log('Email details:', emailDetails);
+    console.log('SMTP Configuration:');
+    console.log('  Host:', process.env.SMTP_HOST);
+    console.log('  Port:', process.env.SMTP_PORT || 587);
+    console.log('  User:', process.env.SMTP_USER);
+    console.log('  Pass length:', process.env.SMTP_PASS ? process.env.SMTP_PASS.length : 0);
+    console.log('  From:', mailOptions.from);
+    
     await transporter.sendMail(mailOptions);
-    console.log('Red alert emails sent successfully');
+    console.log('✅ Red alert emails sent successfully');
     return { sent: true, recipients: Array.from(recipients), count: recipients.size };
   } catch (e) {
-    console.error('Failed to send red alert emails:', e);
-    return { sent: false, reason: 'send_failed', error: String(e) };
+    console.error('❌ Failed to send red alert emails:', e);
+    console.error('Error code:', e.code);
+    console.error('Error response:', e.response);
+    console.error('Error command:', e.command);
+    
+    let errorDetails = String(e);
+    if (e.code === 'EAUTH') {
+      errorDetails += '\n\nTROUBLESHOOTING:\n';
+      errorDetails += '1. Make sure you are using an App Password (not regular Gmail password)\n';
+      errorDetails += '2. Generate App Password at: https://myaccount.google.com/apppasswords\n';
+      errorDetails += '3. Verify 2-factor authentication is enabled\n';
+      errorDetails += '4. Check that SMTP_USER matches the Gmail account\n';
+      errorDetails += '5. If using Vercel, make sure you REDEPLOYED after updating environment variables';
+    }
+    
+    return { sent: false, reason: 'send_failed', error: errorDetails, code: e.code };
   }
 }
 

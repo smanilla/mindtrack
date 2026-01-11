@@ -373,3 +373,5 @@ If you're still having issues:
 
 Once all steps are complete, your Gmail email alerts should be working! 🎉
 
+
+

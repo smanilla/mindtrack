@@ -57,11 +57,26 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
     
-    const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: 'Invalid credentials' });
+    // Normalize email to lowercase (matching User model schema)
+    const normalizedEmail = email.toLowerCase().trim();
+    
+    console.log('Login attempt for email:', normalizedEmail);
+    
+    const user = await User.findOne({ email: normalizedEmail });
+    if (!user) {
+      console.log('User not found for email:', normalizedEmail);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    console.log('User found:', user.email, 'Role:', user.role);
     
     const match = await user.comparePassword(password);
-    if (!match) return res.status(400).json({ message: 'Invalid credentials' });
+    if (!match) {
+      console.log('Password mismatch for user:', normalizedEmail);
+      return res.status(400).json({ message: 'Invalid credentials' });
+    }
+    
+    console.log('Password match successful for user:', normalizedEmail);
     
     // Check JWT_SECRET before signing
     const secret = (process.env.JWT_SECRET || '').trim();
