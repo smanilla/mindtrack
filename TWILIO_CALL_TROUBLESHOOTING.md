@@ -240,4 +240,3 @@ If the issue persists:
 ```
 
 If your call stops at step 2, it means the phone rang but wasn't answered.
-

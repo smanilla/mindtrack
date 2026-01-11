@@ -187,4 +187,3 @@ If you're still having issues:
 2. Check browser console (F12) for frontend errors
 3. Verify all environment variables are set correctly
 4. Make sure the account exists in the production database (not just local)
-

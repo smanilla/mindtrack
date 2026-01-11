@@ -357,6 +357,49 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     ? process.env.TWIML_BIN_URL 
     : `${baseUrl}/api/ai-assessment/voice-message?patientName=${encodeURIComponent(patientName)}`;
 
+  // Pre-flight check: Verify TwiML URL is accessible
+  if (!process.env.TWIML_BIN_URL) {
+    try {
+      console.log('🔍 Pre-flight check: Verifying TwiML endpoint is accessible...');
+      const testUrl = `${baseUrl}/api/ai-assessment/voice-message?patientName=Test`;
+      const https = require('https');
+      const http = require('http');
+      const url = require('url');
+      const testModule = testUrl.startsWith('https') ? https : http;
+      
+      await new Promise((resolve, reject) => {
+        const parsedUrl = new URL(testUrl);
+        const req = testModule.get(parsedUrl, (res) => {
+          if (res.statusCode === 200) {
+            console.log('✅ TwiML endpoint is accessible (HTTP 200)');
+            resolve();
+          } else {
+            console.warn(`⚠️  TwiML endpoint returned HTTP ${res.statusCode} - may cause call issues`);
+            resolve(); // Don't fail, just warn
+          }
+          res.resume(); // Consume response
+        });
+        req.on('error', (err) => {
+          console.error('❌ TwiML endpoint not accessible:', err.message);
+          console.error('   This will cause calls to fail!');
+          reject(err);
+        });
+        req.setTimeout(5000, () => {
+          req.destroy();
+          reject(new Error('TwiML endpoint timeout'));
+        });
+      });
+    } catch (preflightError) {
+      console.error('❌ Pre-flight check failed:', preflightError.message);
+      return { 
+        sent: false, 
+        reason: 'twiml_endpoint_inaccessible', 
+        error: `TwiML endpoint not accessible: ${preflightError.message}`,
+        suggestion: 'Check if your backend URL is correct and the endpoint is publicly accessible'
+      };
+    }
+  }
+
   try {
     console.log('=== CREATING TWILIO CALL ===');
     console.log('To:', formattedPhone);
@@ -388,6 +431,8 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     // 2. Set record to false to avoid additional processing
     // 3. Use statusCallbackEvent to get immediate feedback
     
+    // For Bangladesh numbers, try different call strategies
+    // Some carriers block calls that don't have proper caller ID or routing
     const callOptions = {
       to: formattedPhone,
       from: process.env.TWILIO_PHONE_NUMBER,
@@ -397,11 +442,14 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
       statusCallbackEvent: ['initiated', 'ringing', 'answered', 'completed', 'busy', 'no-answer', 'failed', 'canceled'],
       statusCallbackMethod: 'POST',
       timeout: 30,
-      // Add machine detection to help diagnose issues
-      machineDetection: 'Enable',
-      machineDetectionTimeout: 5,
-      // Record call status for debugging (optional)
-      record: false
+      // Remove machine detection for international calls (can cause issues)
+      // machineDetection: 'Enable',
+      // machineDetectionTimeout: 5,
+      record: false,
+      // Add these for better international call routing
+      sipHeaders: formattedPhone.startsWith('+880') ? {
+        'X-Caller-Country': 'BD'
+      } : {}
     };
     
     console.log('📞 Call options:', {
@@ -420,13 +468,47 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     console.log('Price:', call.price, call.priceUnit);
     
     if (numberValidation && !numberValidation.error) {
-      console.log('📋 Number validation info:');
-      console.log('   Country:', numberValidation.countryCode);
+      console.log('\n📋 Number validation info:');
+      console.log('   Phone Number:', numberValidation.phoneNumber);
+      console.log('   Country Code:', numberValidation.countryCode);
       if (numberValidation.carrier) {
         console.log('   Carrier:', numberValidation.carrier.name);
         console.log('   Type:', numberValidation.carrier.type);
+        console.log('   Mobile Network Code:', numberValidation.carrier.mobileNetworkCode || 'N/A');
       }
+    } else if (numberValidation && numberValidation.error) {
+      console.warn('\n⚠️  Number validation failed:', numberValidation.error);
+      console.warn('   Code:', numberValidation.code);
+      console.warn('   This may indicate the number is invalid or unreachable');
     }
+    
+    // Wait a moment and check call status for immediate feedback
+    setTimeout(async () => {
+      try {
+        const updatedCall = await twilioClient.calls(call.sid).fetch();
+        console.log('\n📊 Call status after 2 seconds:', updatedCall.status);
+        if (updatedCall.status === 'no-answer' && updatedCall.duration === '0') {
+          console.error('\n❌ CRITICAL: Call failed immediately with "no-answer" and 0 seconds');
+          console.error('   This means the call NEVER reached the carrier network.');
+          console.error('   Possible causes:');
+          console.error('   1. 🔴 Carrier-level blocking (most likely for Bangladesh)');
+          console.error('   2. 🔴 Number is invalid or out of service');
+          console.error('   3. 🔴 International routing failure');
+          console.error('   4. 🔴 Phone carrier does not accept calls from US numbers');
+          console.error('\n   💡 SOLUTIONS:');
+          console.error('   - Try calling the number manually from a US number');
+          console.error('   - Check if the number can receive international calls');
+          console.error('   - Consider getting a Bangladesh Twilio number');
+          console.error('   - Check Twilio Console for Error Code (if present)');
+          if (updatedCall.errorCode) {
+            console.error('   - Twilio Error Code:', updatedCall.errorCode);
+            console.error('   - Twilio Error Message:', updatedCall.errorMessage);
+          }
+        }
+      } catch (statusError) {
+        // Ignore - call might not be fetchable yet
+      }
+    }, 2000);
     
     console.log('\n🔍 DIAGNOSTICS:');
     console.log('   If call shows "no-answer" with 0 seconds:');
@@ -438,10 +520,12 @@ async function sendRedAlertVoiceCall(phoneNumber, patientName) {
     console.log('   6. ❓ Try calling the number manually to verify it works');
     
     if (formattedPhone.startsWith('+880')) {
-      console.log('\n🇧🇩 Bangladesh-specific checks:');
-      console.log('   - Verify the number is active and can receive calls');
-      console.log('   - Some Bangladesh carriers block international calls');
-      console.log('   - Consider using a local Bangladesh number for better success rate');
+      console.log('\n🇧🇩 Bangladesh-specific issues:');
+      console.log('   ⚠️  Many Bangladesh carriers BLOCK calls from international numbers');
+      console.log('   ⚠️  Some carriers require pre-registration for international calls');
+      console.log('   ⚠️  Mobile operators may have restrictions on US numbers');
+      console.log('   💡 RECOMMENDED: Get a Bangladesh Twilio number for better success');
+      console.log('   💡 ALTERNATIVE: Use SMS instead of voice calls for Bangladesh');
     }
     
     return { 
@@ -986,6 +1070,47 @@ router.post('/call-status', express.urlencoded({ extended: true }), (req, res) =
   if (req.body?.ErrorCode) {
     console.log('❌ Twilio Error Code:', req.body.ErrorCode);
     console.log('   Error Message:', req.body.ErrorMessage || 'N/A');
+    
+    // Provide specific guidance based on error code
+    const errorCode = req.body.ErrorCode;
+    if (errorCode === '21211') {
+      console.log('   💡 Issue: Invalid phone number format');
+    } else if (errorCode === '21408') {
+      console.log('   💡 Issue: Geo permission denied - check Twilio Geo Permissions');
+    } else if (errorCode === '21610') {
+      console.log('   💡 Issue: Number is unreachable or invalid');
+    } else if (errorCode === '21614') {
+      console.log('   💡 Issue: Number is not a valid mobile number');
+    } else if (errorCode === '21617') {
+      console.log('   💡 Issue: Phone number is unallocated');
+    } else if (errorCode === '30001') {
+      console.log('   💡 Issue: Queue overflow - too many calls');
+    } else if (errorCode === '30002') {
+      console.log('   💡 Issue: Account suspended');
+    } else if (errorCode === '30003') {
+      console.log('   💡 Issue: Unreachable destination handset');
+    } else if (errorCode === '30005') {
+      console.log('   💡 Issue: Unknown destination handset');
+    } else if (errorCode === '30008') {
+      console.log('   💡 Issue: Unreachable destination - carrier blocking');
+    }
+  }
+  
+  // Check for specific "no-answer" with 0 duration issue
+  if (callStatus === 'no-answer' && (!req.body?.CallDuration || req.body.CallDuration === '0')) {
+    console.log('\n🔴 CRITICAL ISSUE DETECTED: Call never connected to network');
+    console.log('   Status: "no-answer" with 0 seconds duration');
+    console.log('   This means Twilio could not route the call to the carrier.');
+    console.log('\n   Most likely causes for Bangladesh numbers:');
+    console.log('   1. 🔴 Carrier-level blocking of international calls');
+    console.log('   2. 🔴 Number is invalid or out of service');
+    console.log('   3. 🔴 Mobile operator restrictions');
+    console.log('   4. 🔴 Number requires pre-registration for international calls');
+    console.log('\n   💡 RECOMMENDED ACTIONS:');
+    console.log('   - Test: Call the number manually from a US number');
+    console.log('   - Check: Twilio Console → Monitor → Logs → Calls → [Call SID] → Error Code');
+    console.log('   - Consider: Using SMS instead of voice calls');
+    console.log('   - Consider: Getting a Bangladesh Twilio number');
   }
   
   // Return immediately to avoid Twilio warnings

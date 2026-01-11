@@ -57,4 +57,3 @@ async function createDoctorAccount() {
 }
 
 createDoctorAccount();
-
