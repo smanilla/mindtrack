@@ -1037,6 +1037,11 @@ router.post('/call-status', express.urlencoded({ extended: true }), (req, res) =
   switch (callStatus) {
     case 'ringing':
       console.log('📞 Call is ringing... (waiting for answer)');
+      // If duration is 0, the call may be stuck - check final status later
+      if (!req.body?.CallDuration || req.body.CallDuration === '0') {
+        console.log('⚠️  Note: Duration is 0 - call may not be actually ringing');
+        console.log('   This could indicate carrier-level blocking or network issues');
+      }
       break;
     case 'answered':
       console.log('✅ Call was answered! TwiML should be executing now.');
@@ -1094,6 +1099,43 @@ router.post('/call-status', express.urlencoded({ extended: true }), (req, res) =
     } else if (errorCode === '30008') {
       console.log('   💡 Issue: Unreachable destination - carrier blocking');
     }
+  }
+  
+  // Check for "ringing" status that never progresses (stuck in ringing)
+  if (callStatus === 'ringing' && (!req.body?.CallDuration || req.body.CallDuration === '0')) {
+    console.log('\n⚠️  CALL STUCK IN RINGING STATE');
+    console.log('   Status: "ringing" but duration is 0');
+    console.log('   This means Twilio is trying to connect, but the call is not actually ringing.');
+    console.log('   The carrier may be blocking or the phone may be unreachable.');
+    
+    // Schedule a check to see if call eventually fails
+    setTimeout(async () => {
+      try {
+        if (twilioClient && callSid && callSid !== 'NOT FOUND') {
+          const updatedCall = await twilioClient.calls(callSid).fetch();
+          console.log(`\n📊 Call status check after 10 seconds: ${updatedCall.status}`);
+          console.log(`   Duration: ${updatedCall.duration} seconds`);
+          
+          if (updatedCall.status === 'no-answer' && updatedCall.duration === '0') {
+            console.log('\n🔴 CONFIRMED: Call failed - never actually rang');
+            console.log('   Final Status: no-answer with 0 seconds');
+            if (updatedCall.errorCode) {
+              console.log('   Error Code:', updatedCall.errorCode);
+              console.log('   Error Message:', updatedCall.errorMessage);
+            }
+            console.log('\n   💡 This indicates carrier-level blocking or unreachable number');
+            console.log('   💡 Consider using SMS instead of voice calls for Bangladesh');
+          } else if (updatedCall.status === 'ringing' && updatedCall.duration === '0') {
+            console.log('\n⚠️  Call still in ringing state after 10 seconds');
+            console.log('   This is unusual - the call may be stuck');
+          } else if (updatedCall.status === 'completed') {
+            console.log('✅ Call completed successfully!');
+          }
+        }
+      } catch (checkError) {
+        console.log('Could not fetch updated call status:', checkError.message);
+      }
+    }, 10000); // Check after 10 seconds
   }
   
   // Check for specific "no-answer" with 0 duration issue
